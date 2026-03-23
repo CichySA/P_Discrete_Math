@@ -1,0 +1,605 @@
+\documentclass[12pt, openany]{article}
+
+\usepackage{import}
+\usepackage{config}
+
+\usepackage{xcolor}
+\usepackage{makeidx}
+\usepackage{multicol}
+
+\usepackage[]{caption}
+
+\usepackage[sorting=none]{biblatex}
+
+\addbibresource{biblio.bib}
+\renewcommand*{\bibfont}{\small}
+%\setlength{\bibitemsep}{0pt} % Pas d'espace entre les références
+
+
+%{\fontsize{10pt}{14pt}\selectfont}
+%{\scriptsize}
+
+
+
+
+
+\begin{document}
+\lstset{inputencoding=utf8/latin1}
+\renewcommand{\labelitemi}{$\bullet$}
+
+\begin{titlepage}
+  \begin{sffamily}
+  \begin{center}
+
+    \includegraphics[width=0.9\linewidth]{logo.png}~\\[0.5cm]
+
+    %\textsc{ds\LARGE }\\[2cm]
+
+    \textsc{\Large Discrete Mathematics \\ Project - Group 3}\\[1.5cm]
+
+
+    \color{centrale_red}\HRule \\[0cm]
+    { \huge \bfseries \color{centrale_red} \textit{Optimization techniques}\\ Graph-based optimization for resource allocation during an outbreak\\ }
+
+    \HRule \\[0.5cm]
+
+    {\Large \bfseries \color{centrale_red} -- Agreement of Scope -- }
+    \color{black}
+    %\includegraphics[width=0.8\textwidth]{CM/granta/moduleYoung_coursIDM.png}
+    %\begin{center}
+     %    Les différentes familles de matériaux illustrées par leur module d'Young\\(Source : \cite{diapoIDMcha1})
+    %\end{center}
+    %\\%[2cm]
+
+    \vspace{2.5cm}
+
+    \begin{minipage}{0.4\textwidth}
+      \begin{flushleft} \large
+      \textit{\textbf{Students}} \\[0.5cm]
+      Sczymon \textsc{Cichy}\\
+    Maxime \textsc{Luce} \\
+
+  
+      \end{flushleft}
+    \end{minipage}
+    \begin{minipage}{0.4\textwidth}
+      \begin{flushright} \large
+      \textit{\textbf{Teacher}} \\[0.5cm]
+       Marcin \textsc{Bodych}\\
+      \end{flushright}
+    \end{minipage}
+
+    \vfill
+
+
+    {Academic year 2025/2026 -- \today}
+
+  \end{center}
+  \end{sffamily}
+\end{titlepage}
+
+\clearpage % end title page
+
+%\begingroup
+%  \pagestyle{empty}
+%  \null
+%  \newpage
+%\endgroup
+
+%\tableofcontents
+
+\newpage
+
+\section{Problem Overview and Motivation}
+
+During a health crisis such as an epidemic, the rapid distribution of critical resources (e.g., vaccines, medical staff, intensive care beds) is a matter of survival. But the logistics infrastructures (roads, plains, and so on) have limited capacities and they might be issue to close some roads.
+
+This project aims to model this logistical challenge as an optimization problem on a directed network and graph. Our objectives are to design, implement, and analyze algorithms capable of computing the maximum allocation of resources in real time in all scenario possible.
+
+\section{Mathematical Framing and Theoretical Background}
+
+\section{Model Design and Implementation Overview}
+
+\section{Experiments and Results}
+
+\section{Deliverables}
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.5}
+    \caption{\textbf{Description of Project Deliverables requirements.} Each requirement has a code, a name and a description.}
+    \label{tab:SSP_PD}
+    \begin{tabularx}{\textwidth}{|l|l|X|}
+        \hline 
+        \textbf{Code} & \textbf{Name} & \textbf{Description} \\ \hline
+
+        \textbf{D-01} & Agreement of Scope & description \\ \hdashline
+
+        \textbf{D-02} & Documentation &  \\ \hdashline
+
+        \textbf{D-03} & Presentation &  \\ \hdashline
+
+        \textbf{D-04} & Source Code & Github \\ 
+
+        \hline
+    \end{tabularx}
+    
+\end{table}
+
+\section{NOTEPAD }
+
+\section{Graph-based optimization for resource allocation during an outbreak (maximum flow)}
+
+
+\subsubsection{Flow network}
+\paragraph{Flow Network}
+In order to explain the \textbf{maximum flow} problem, we must introduce the \textbf{flow network}.
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    scale=1.2,
+    >=stealth,
+    vertex/.style={circle, draw, minimum size=11mm, inner sep=0pt},
+    flow/.style={-{Stealth[length=3mm]}, thick},
+    edge/.style={thick}
+]
+
+% Nodes
+\node[vertex] (s) at (0,1.5) {$s$};
+\node[vertex] (a) at (2.8,3.0) {$a$};
+\node[vertex] (b) at (2.8,0.0) {$b$};
+\node[vertex] (c) at (6.0,3.0) {$c$};
+\node[vertex] (d) at (6.0,0.0) {$d$};
+\node[vertex] (t) at (8.8,1.5) {$t$};
+% Solid edges
+\draw[flow] (s) -- node[midway, above] {$\frac{3}{5}$} (a);
+\draw[flow] (s) -- node[midway, below] {$\frac{2}{2}$} (b);
+\draw[flow] (a) -- node[midway, left] {$\frac{1}{2}$} (b);
+\draw[flow] (a) -- node[midway, below] {$\frac{2}{3}$} (c);
+\draw[flow] (b) -- node[midway, below] {$\frac{3}{4}$} (d);
+\draw[flow] (c) -- node[midway, left] {$\frac{1}{1}$} (d);
+\draw[flow] (c) -- node[midway, above] {$\frac{1}{2}$} (t);
+\draw[flow] (d) -- node[midway, below] {$\frac{4}{5}$} (t);
+\end{tikzpicture}
+\caption{Example flow network}
+\end{figure}
+\begin{itemize}
+
+\item \textbf{Flow Network} -- A directed graph representing transport of flow between nodes.
+
+\item \textbf{Edge Capacity} -- The maximum amount of flow that an edge can carry.
+
+\item \textbf{Flow} -- Quantity transmitted through an edge, limited by its \textbf{capacity}.
+
+\item \textbf{Node (Vertex)} -- A point in the network where flow can enter or leave.
+
+\item \textbf{Arc (Edge)} -- A directed connection between two \textbf{nodes}.
+
+\item \textbf{Flow Constraint} -- Flow on an edge cannot exceed its capacity.
+
+\item \textbf{Flow Conservation} -- For intermediate nodes, incoming flow equals outgoing flow.
+
+\item \textbf{Source} -- A node with only outgoing flow.
+
+\item \textbf{Sink} -- A node with only incoming flow.
+
+\end{itemize}
+\subsubsection{Mathematical formulation of a flow network}
+\[
+G = (V,E)
+\]
+where:
+\begin{itemize}
+    \item \(V\) is the set of vertices,
+    \item \(E \subseteq V \times V\) is the set of directed edges,
+    \item \(s \in V\) is the source,
+    \item \(t \in V\) is the sink,
+    \item \(c : E \to \mathbb{R}_{\ge 0}\) is the capacity function.
+        \[
+        \forall (u,v) \in E :
+        \begin{cases}
+        c(v,u) = 0, & \text{if } (v,u) \notin E
+        \end{cases}
+    \]
+\end{itemize}
+
+\paragraph{Flow function}
+\[
+f : E \to \mathbb{R}_{\ge 0}
+\]
+such that:
+
+\begin{enumerate}
+    \item \textbf{Capacity constraint}
+    \[
+    0 \le f(u,v) \le c(u,v)
+    \qquad \forall (u,v)\in E
+    \]
+
+    \item \textbf{Flow conservation}
+    \[
+    \sum_{(u,v)\in E} f(u,v)
+    \;=\;
+    \sum_{(v,w)\in E} f(v,w)
+    \qquad \forall v \in V \setminus \{s,t\}
+    \]
+\end{enumerate}
+\paragraph{Excess Function} derived from \textbf{flow conservation}. It represents the difference between the total incoming and outgoing flow at vertex \(v\). For a flow network \(G = (V,E)\) with flow \(f\), the excess function of a vertex \(v\) is defined as
+
+\[
+e(v) =
+\sum_{(u,v)\in E} f(u,v)
+-
+\sum_{(v,w)\in E} f(v,w)
+\]
+
+
+
+\begin{itemize}
+
+\item \textbf{Conserving} vertex \(e(v) = 0\): Flow into the vertex equals flow leaving it.
+\item \textbf{Active} vertex \(e(v) > 0\) indicating excess incoming flow. \textbf{Sink} \(t\) is active
+\item \textbf{Deficient} vertex \(e(v) > 0\) indicating more outgoing than incoming flow. \textbf{Source} \(s\) is deficient
+
+
+\end{itemize}
+The value of a \textbf{feasible flow} (or just \textbf{flow}) for a network is the net flow into the sink \(t\):
+\[
+-e(s) = |f| = e(t)
+\]
+\subsubsection{Max flow}
+\[
+\max \quad |f|
+\]
+\paragraph{Algorithms} run mostly in polynomial time and give optimal solutions
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|l|}
+\hline
+\textbf{Algorithm} & \textbf{Year} & \textbf{Time Complexity} \\
+\hline
+Ford--Fulkerson & 1956 & $O(E \cdot |f^*|)$ \\
+Edmonds--Karp & 1969 & $O(VE^2)$ \\
+Dinic's Algorithm & 1970 & $O(V^2E)$ \\
+Push--Relabel & 1986 & $O(V^3)$ \\
+\hline
+\end{tabular}
+\caption{Algorithms for solving the Maximum Flow problem}
+\end{table}
+\paragraph{Maximum flow} is a special case used in other network problem
+
+
+\subsubsection{Practical interpretation: resource distribution during epidemic outbreak}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Network Concept} & \textbf{Outbreak Meaning} \\
+\hline
+Source $s \rightarrow$ Warehouse $v_i$ & Available stock $c(s,v_i)$ \\
+\hline
+Warehouse $v_i \rightarrow$ Hospital $r_j$ & Transportation capacity $c(v_i,r_j)$ \\
+\hline
+Hospital $r_j \rightarrow$ Sink $t$ & Hospital demand $c(r_j,t)$ \\
+\hline
+Maximum flow $|f|$ & Maximum satisfied demand \\
+\hline
+\end{tabular}
+\caption{Interpretation of flow network elements in the outbreak distribution model}
+\end{table}
+
+\subsubsection{Extensions of the problem}
+\begin{itemize}
+
+\item \textbf{Maximum Flow}
+\begin{itemize}
+\item \textbf{Objective:} 
+\[
+\max \sum_{(s,v)\in E} f_{sv}
+\]
+\item \textbf{Interpretation:} Maximize total vaccines delivered from warehouses to hospitals subject to supply, transport and demand limits.
+\item \textbf{Problem type:} Polynomial-time graph algorithm
+\end{itemize}
+
+\item \textbf{Minimum $s$-$t$ Cut}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\min \sum_{(i,j)\in C} c_{ij}
+\]
+\item \textbf{Interpretation:} Identify the smallest set of edges whose removal disconnects supply from hospitals (system bottlenecks).
+\item \textbf{Problem type:} Max-flow Min-cut theorem, dual LP
+\end{itemize}
+
+\item \textbf{Lower-Bounded Flow}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \sum f_{sv}, \quad l_{ij} \le f_{ij} \le c_{ij}
+\]
+\item \textbf{Interpretation:} Guarantee each hospital receives a minimum allocation.
+\item \textbf{Transformation:}
+\[
+f'_{ij} = f_{ij} - l_{ij}, \quad 0 \le f'_{ij} \le c_{ij} - l_{ij}
+\]
+\end{itemize}
+
+\item \textbf{Weighted Flow Allocation}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \sum w_i x_i
+\]
+\item \textbf{Interpretation:} Prioritize certain hospitals (e.g., high-risk populations or larger hospitals).
+\item \textbf{Problem type:} LP
+\end{itemize}
+
+\item \textbf{Max-Min Fairness}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max z \quad \text{subject to } x_i \ge z
+\]
+\item \textbf{Interpretation:} Maximize the allocation of the worst-served hospital.
+\item \textbf{Problem type:} LP
+\end{itemize}
+
+\item \textbf{Relative Coverage Fairness}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \alpha \quad \text{subject to } x_i \ge \alpha d_i
+\]
+\item \textbf{Interpretation:} Maximize the minimum percentage of demand satisfied across hospitals.
+\item \textbf{Problem type:} LP
+\end{itemize}
+
+\item \textbf{Minimum-Cost Flow (MCFP)}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\min \sum c_{ij} f_{ij}
+\]
+\item \textbf{Interpretation:} Minimize transportation costs or delays.
+\item \textbf{Problem type:} LP
+\end{itemize}
+
+\item \textbf{Multi-Commodity Flow}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \sum_k \sum f_{ij}^k
+\]
+\item \textbf{Interpretation:} Allocate multiple resources simultaneously (vaccines, PPE, staff).
+\item \textbf{Problem type:} Various formulations
+\end{itemize}
+
+\item \textbf{Integer Flow Constraints}
+\begin{itemize}
+\item \textbf{Constraint:}
+\[
+f_{ij} \in \mathbb{Z}
+\]
+\item \textbf{Interpretation:} Shipments occur in discrete batches.
+\item \textbf{Problem type:} MILP, NP-hard
+\end{itemize}
+
+\item \textbf{Integer Capacity Expansion}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \sum_{(s,v)\in E} f_{sv}
+\]
+\[
+0 \le f_e \le u_e + y_e
+\]
+\[
+\sum_e y_e \le B, \quad y_e \in \mathbb{Z}_{\ge 0}
+\]
+\item \textbf{Interpretation:} Add (discrete) resources \(y_e\) (e.g., drivers) to increase capacity. 
+\item \textbf{Problem type:} MILP, NP-hard if \(y_e \in \mathbb{Z}_{\ge 0}\)
+\end{itemize}
+
+\item \textbf{Network Design / Planning}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\min \sum c_{ij} y_{ij}
+\]
+\[
+\quad y_ij \in \mathbb{Z}_{\ge 0}
+\]
+\item \textbf{Interpretation:} Decide which transport routes should be built or expanded.
+\item \textbf{Problem type:} MILP, NP-hard
+\end{itemize}
+
+\item \textbf{Proportional Fairness}
+\begin{itemize}
+\item \textbf{Objective:}
+\[
+\max \sum_i \log(x_i)
+\]
+\item \textbf{Interpretation:} Balance efficiency and fairness by giving greater benefit to underserved hospitals.
+\item \textbf{Problem type:} Convex
+\end{itemize}
+
+
+\item \textbf{Time-Expanded Network Flow}
+\begin{itemize}
+\item \textbf{Model:}
+\[
+G(t)=(V,E(t))
+\]
+\[
+\max \sum_t \sum f_{sv}(t)
+\]
+\item \textbf{Interpretation:} Model distribution across multiple time periods with storage and delays.
+\item \textbf{Problem type:} Dynamic graph problem
+\end{itemize}
+\end{itemize}
+
+\subsubsection{Transforming Max Flow problem with constraints into Linear Program}
+\paragraph{Standard Matrix Form of the Maximum Flow Problem}
+
+Let \(G=(V,E)\) be a directed graph with source \(s\), sink \(t\), and capacity vector
+\[
+u \in \mathbb{R}^m_{\ge 0},
+\]
+where the edges are indexed as
+\[
+E=\{e_1,e_2,\dots,e_m\}.
+\]
+
+Let the flow variables be collected in the vector
+\[
+x=\begin{bmatrix}
+f(e_1)\\
+f(e_2)\\
+\vdots\\
+f(e_m)
+\end{bmatrix}\in\mathbb{R}^m.
+\]
+
+Define the objective vector \(q \in \mathbb{R}^m\) by
+\[
+q_i =
+\begin{cases}
+1, & \text{if } e_i=(s,v)\in E, \\[4pt]
+-1, & \text{if } e_i=(v,s)\in E, \\[4pt]
+0, & \text{otherwise.}
+\end{cases}
+\]
+Then the value of the flow is
+\[
+|f| = q^T x.
+\]
+Which is equivalent to the familiar form we've presented earlier
+\[
+|f|
+=
+\sum_{(s,v)\in E} f(s,v)
+-
+\sum_{(v,s)\in E} f(v,s)
+\]
+
+Let \(A \in \mathbb{R}^{(|V|-2)\times |E|}\) be the node-edge incidence matrix for all intermediate vertices \(V\setminus\{s,t\}\), defined by
+\[
+A_{ve}=
+\begin{cases}
+1, & \text{if edge } e \text{ enters vertex } v,\\
+-1, & \text{if edge } e \text{ leaves vertex } v,\\
+0, & \text{otherwise.}
+\end{cases}
+\]
+Then the flow conservation constraints are
+\[
+Ax=0.
+\]
+Just to show an example, our first flow network can be represented as a product of \(Ax\), just as it can be stored in memory as a data structure (s and t rows can be reduced due to flow conservation - \(V\setminus\{s,t\}\)):
+\[
+\begin{bmatrix}
+s \\
+A \\
+t
+\end{bmatrix}
+=
+\begin{array}{c|ccccccccc}
+ & e_{sa} & e_{sb} & e_{ab} & e_{ac} & e_{bd} & e_{cd} & e_{ct}& e_{dt}\\
+\hline
+s & -1 & -1 & 0 & 0 & 0 & 0 & 0 & 0\\
+a & 1 & 0 & -1 & -1 & 0 & 0 & 0 & 0 \\
+b & 0 & 1 & 1 & 0 & -1 & 0 & 0 & 0 \\
+c & 0 & 0 & 0 & 1 & 0 & -1 & -1 & 0\\
+d & 0 & 0 & 0 & 0 & 1 & 1 & 0 & -1 \\
+t & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 \\
+\end{array}
+\]
+\[
+u=
+\begin{bmatrix}
+c_{sa} \\
+c_{sb} \\
+c_{ab} \\
+c_{ac} \\
+c_{bd} \\
+c_{cd} \\
+c_{ct} \\
+c_{dt}
+\end{bmatrix}
+=
+\begin{bmatrix}
+5\\
+2\\
+2\\
+3\\
+4\\
+1\\
+2\\
+5
+\end{bmatrix}
+\]
+\[
+q=
+\begin{bmatrix}
+q_{sa} \\
+q_{sb} \\
+q_{ab} \\
+q_{ac} \\
+q_{bd} \\
+q_{cd} \\
+q_{ct} \\
+q_{dt}
+\end{bmatrix}
+=
+\begin{bmatrix}
+1\\
+1\\
+0\\
+0\\
+0\\
+0\\
+0\\
+0
+\end{bmatrix}
+\]
+\[
+x=
+\begin{bmatrix}
+f_{sa} \\
+f_{sb} \\
+f_{ab} \\
+f_{ac} \\
+f_{bd} \\
+f_{cd} \\
+f_{ct} \\
+f_{dt}
+\end{bmatrix}
+=
+\begin{bmatrix}
+3\\
+2\\
+1\\
+2\\
+3\\
+1\\
+1\\
+4
+\end{bmatrix}
+\]
+
+Therefore, the maximum flow problem in standard matrix form is
+\[
+\begin{aligned}
+\max \quad & q^T x \\
+\text{s.t.} \quad & Ax = 0, \\
+& x \le u, \\
+& x \ge 0.
+\end{aligned}
+\]
+
+\subsection{Resource-aware scheduling heuristics for epidemic responses}
+
+\subsection{Flow decomposition techniques for dynamic network optimization}
+
+
+\end{document} 

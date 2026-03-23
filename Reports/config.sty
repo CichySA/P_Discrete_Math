@@ -1,0 +1,226 @@
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=1.5cm,right=1.5cm,top=2cm,bottom=3cm]{geometry}
+\usepackage[english]{babel}
+\usepackage{libertine}
+\usepackage[pdftex]{graphicx}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{array}
+\usepackage{diagbox}
+\usepackage{makecell}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage[nottoc,numbib]{tocbibind}
+\usepackage{wrapfig}
+\usepackage[dvipsnames]{xcolor}
+
+% Ajustement des marges internes
+\setlength{\intextsep}{10pt} % Espace autour des figures
+\setlength{\columnsep}{10pt} % Espace entre la figure et le texte
+
+\usepackage{hyperref}
+\newcommand*{\figref}[2][]{%
+  \hyperref[{fig:#2}]{%
+    \textcolor{centrale_red}{{Figure~\ref*{fig:#2}}}%
+    \ifx\\#1\\%
+    \else
+      \,#1%
+    \fi
+  }%
+}
+\newcommand*{\tableref}[2][]{%
+  \hyperref[{tab:#2}]{%
+    \textcolor{centrale_red}{{Table ~\ref*{tab:#2}}}%
+    \ifx\\#1\\%
+    \else
+      \,#1%
+    \fi
+  }%
+}
+
+
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+
+
+\usepackage{subcaption}
+%\usepackage{siunitx}
+\usepackage{enumitem}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{fit}
+\usetikzlibrary{shapes}
+\usetikzlibrary{calc}
+
+\tikzstyle{process} = [rectangle, 
+minimum width=3cm, 
+minimum height=1cm, 
+text centered, 
+text width=3cm, 
+draw=black
+]
+\tikzstyle{arrow} = [ultra thick,->,>=stealth]
+
+\usepackage{sectsty}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listingsutf8}
+\usepackage{tcolorbox}
+\usepackage{mathtools}
+\usepackage{physics}
+\usepackage{empheq}
+\usepackage{cancel}
+\usepackage{esint}
+
+\definecolor{centrale_red}{RGB}{179,33,22} % Rouge centralien
+\definecolor{wroclaw2}{RGB}{252,210,160}
+
+\sectionfont{\color{centrale_red}}
+\subsectionfont{\color{centrale_red}}
+
+
+\setlength{\parskip}{1ex plus 0.5ex minus 0.2ex}
+\newcommand{\hsp}{\hspace{20pt}}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\usepackage[squaren, Gray, cdot]{SIunits}
+\addunit\decibel{dB}
+
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{float}
+
+\usepackage{minted}
+
+% \renewcommand\labelenumi{[\theenumi]}
+
+% Header et Footer
+\pagestyle{fancy}
+\fancyheadoffset{1cm}
+%\setlength{\headheight}{2.5cm}
+\fancyhead{}\fancyfoot{}
+\fancyhead[C]{\leftmark}
+%\fancyhead[L]{\hspace*{0.66cm}\includegraphics[height=2.75cm]{logos/logo.png}}
+\lfoot{\raisebox{0.75cm}{\hspace{-0.5cm}\includegraphics[height=2cm]{motif.png}}}
+
+\rfoot{
+      \raisebox{1cm}{
+       % \includegraphics[height=1.5cm]{blason.png}
+      }
+      \raisebox{1.65cm}{ \makebox[0pt][c]{\hspace{-1.755cm}\textbf{\colorbox{centrale_red}{\textcolor{wroclaw2}{\thepage}}}}}
+      \hspace*{-0.67cm}
+    }
+
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
+\usepackage[table]{xcolor}% http://ctan.org/pkg/xcolor
+
+\renewcommand{\arraystretch}{1.5}
+
+%\setlength{\tabcolsep}{0.3cm} 
+
+\usepackage{arydshln}
+
+\usepackage{pdfpages} % pour inclure des pdfs
+
+\usepackage{matlab-prettifier}%inclusion du code matlab
+
+
+\usepackage[]{caption}
+\DeclareCaptionFont{centrale_red}{\color{centrale_red}}
+\captionsetup{labelfont={centrale_red}}
+
+\everymath{\displaystyle}
+
+\usetikzlibrary{decorations.pathreplacing,decorations.pathmorphing}
+
+%\usepackage{tocloft}
+
+\usepackage{mdframed}
+\usepackage{stmaryrd}
+
+\definecolor{rouge centrale}{RGB}{179,33,22}
+% Définition d'un nouvel environnement avec une barre verticale noire à gauche
+\newmdenv[
+    linecolor=rouge centrale,
+    linewidth=3pt, % Épaisseur de la barre
+    leftline=true, % Active uniquement la ligne gauche
+    topline=false, % Désactive les autres lignes
+    bottomline=false,
+    rightline=false,
+    innerrightmargin=0pt,
+    innerleftmargin=5pt, % Espacement entre la barre et le texte
+]{barretext}
+
+\usepackage{pdflscape}
+\definecolor{dark blue}{RGB}{0,0,140} 
+\usepackage{multirow}
+\definecolor{magenta}{RGB}{128, 0, 128}
+
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\titleclass{\subsubsubsection}{straight}[\subsection]
+
+\newcounter{subsubsubsection}[subsubsection]
+\renewcommand\thesubsubsubsection{\thesubsubsection.\arabic{subsubsubsection}}
+\renewcommand\theparagraph{\thesubsubsubsection.\arabic{paragraph}} % optional; useful if paragraphs are to be numbered
+
+\titleformat{\subsubsubsection}
+  {\normalfont\normalsize\bfseries}{\thesubsubsubsection}{1em}{}
+\titlespacing*{\subsubsubsection}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{5}{\z@}%
+  {3.25ex \@plus1ex \@minus.2ex}%
+  {-1em}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{6}{\parindent}%
+  {3.25ex \@plus1ex \@minus .2ex}%
+  {-1em}%
+  {\normalfont\normalsize\bfseries}}
+\def\toclevel@subsubsubsection{4}
+\def\toclevel@paragraph{5}
+%\def\toclevel@paragraph{6}
+\def\toclevel@subparagraph{6}
+\def\l@subsubsubsection{\@dottedtocline{4}{7em}{4em}}
+\def\l@paragraph{\@dottedtocline{5}{10em}{5em}}
+\def\l@subparagraph{\@dottedtocline{6}{14em}{6em}}
+\makeatother
+
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+\usepackage{bm}
+
+\renewcommand{\epsilon}{\varepsilon}
+
+% list of table as subsection*
+\makeatletter
+\renewcommand\listoftables{%
+  \subsection*{\listtablename}% Remplace \section* par \subsection*
+  \@starttoc{lot}%
+}
+\makeatother
+
+
+% list of table as subsection*
+\makeatletter
+\renewcommand\listoffigures{%
+  \subsection*{\listfigurename}% Remplace \section* par \subsection*
+  \@starttoc{lof}%
+}
+\makeatother
+
+\usepackage{amsthm}
+
+\newtheorem*{remark}{Remark}
+
+\usepackage{float}
+\usepackage{tabularx}
+\usetikzlibrary{quotes}
+\usetikzlibrary{arrows.meta}
