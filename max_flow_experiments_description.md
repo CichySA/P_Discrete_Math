@@ -181,6 +181,82 @@ tangible.
 
 ---
 
+## Visualization Approaches — Conceptual Map
+
+Visualizations for flow/fairness problems fall into five categories,
+each illuminating a different facet of the mathematics:
+
+### A. Graph-Centric (Topology + Flow)
+**What you see:** The network itself, with flow/capacity on edges.
+- Edge thickness ∝ flow volume
+- Edge color ∝ utilization (green = slack, red = saturated)
+- Node coloring by partition (S-side vs T-side for cuts)
+- Highlighting of bottleneck/cut edges
+
+**Tool:** `nx.draw_networkx_edges` with per-edge styling.
+**Best for:** Intuition about which routes are congested and where the bottleneck lies.
+
+### B. Constraint-Space (Polytope)
+**What you see:** The feasible region as a geometric shape.
+- For $n$ edges, the flow polytope lives in $\mathbb{R}^n$.
+- Project to 2D by fixing $n-2$ variables to see the feasible polygon.
+- Capacity constraints become half-planes; the optimum is a vertex.
+- Objective contours show the gradient direction.
+
+**Tool:** Matplotlib patches (`Rectangle`, `Polygon`) + contour lines.
+**Best for:** Understanding why LP solutions lie at vertices, and how changing a
+capacity constraint "pushes" a face of the polytope.
+
+### C. Duality-Space (Gap + Saddle)
+**What you see:** Primal/dual convergence and KKT geometry.
+- **Gap plot:** Primal value rising, dual value falling — they meet at optimality.
+- **Complementary slackness heatmap:** $\lambda_e \cdot (c_e - f_e)$ as a grid —
+  should be zero everywhere at optimality (verifies KKT).
+- **Saddle surface:** 3D plot of $L(f, \lambda)$ — the saddle point is where
+  $\nabla L = 0$, the primal maximizes over $f$ and the dual minimizes over $\lambda$.
+
+**Tool:** 3D `plot_surface` + 2D `contour` for the Lagrangian.
+**Best for:** Proving to yourself that duality isn't abstract — it's a geometric
+saddle on a surface you can see.
+
+### D. Fairness-Space (Trade-off Curves)
+**What you see:** How the solution changes as fairness preference varies.
+- **Bar chart matrix:** grouped bars of flow per edge, one group per α.
+- **Price-of-fairness curve:** total throughput vs α (monotonically decreasing).
+- **Jain index curve:** fairness metric vs α (monotonically increasing).
+- **Pareto frontier:** Jain index vs throughput — the boundary of achievable
+  (efficiency, fairness) pairs.
+
+**Tool:** Multi-panel `plt.subplots` dashboard, dual-axis plots.
+**Best for:** The central trade-off question: "How much throughput do I sacrifice
+for a given level of fairness?"
+
+### E. Temporal (Animation & Interaction)
+**What you see:** The solution *evolving*.
+- **Augmenting path sequence:** each frame = one Ford-Fulkerson augmentation,
+  showing the residual graph path and cumulative flow.
+- **α-sweep morphing:** continuous animation of flow redistribution as α
+  slides from 0 (utilitarian) to ∞ (max-min).
+- **Interactive slider:** drag α and watch the graph + bar chart update in
+  real time (Jupyter + ipywidgets).
+
+**Tool:** `matplotlib.animation.FuncAnimation`, `ipywidgets.interactive_output`.
+**Best for:** Teaching — the augmenting-path animation makes Ford-Fulkerson
+concrete; the α slider makes the fairness spectrum *feel* real.
+
+### When to use which
+
+| Question | Best Visualization |
+|---|---|
+| "Where is the bottleneck?" | Graph (utilization coloring + cut partition) |
+| "Why is this LP optimal?" | Polytope (vertex + objective contours) |
+| "Is duality tight?" | Gap plot + complementary slackness heatmap |
+| "What does fairness cost?" | Fairness dashboard (throughput + Jain vs α) |
+| "How does the algorithm work?" | Augmenting-path animation |
+| "Let me explore α myself" | Interactive ipywidgets slider |
+
+---
+
 ## What Was Intentionally Omitted
 
 - **Dinic's / Push-Relabel algorithms**: The focus is on optimization formulations
@@ -225,3 +301,55 @@ tangible.
    `Main.ipynb` or import them as modules. The `draw_network` function in
    `flow_network.py` can be extended to color edges by flow/capacity ratio
    or to highlight the min-cut partition.
+
+---
+
+### 5. `example_flow_visualizations.py`
+**Concept:** Comprehensive visualization catalog for flow & fairness
+
+**Visualizations provided:**
+
+| # | Function | Type | What It Shows |
+|---|---|---|---|
+| 1 | `draw_flow_utilization` | Static graph | Edge colors by utilization (green→yellow→red), edge thickness by flow volume |
+| 2 | `draw_min_cut_partition` | Static graph | S-side (blue) / T-side (orange) node coloring, cut edges in thick red, residual-graph BFS extraction |
+| 3 | `draw_feasible_polytope_2d` | Constraint space | 2D projection of flow polytope for a 3-edge network; capacity half-planes, objective contours, optimum vertex |
+| 4 | `draw_duality_visualizations` | Dual analysis | Left: primal-dual gap convergence plot. Right: complementary slackness heatmap (f, c, slack, λ, λ·(c−f) per edge) |
+| 5 | `draw_fairness_dashboard` | Multi-panel | Top-left: grouped bar chart of edge flows by α. Top-right: total throughput vs α (price of fairness area). Bottom: Jain index + throughput dual-axis plot |
+| 6 | `animate_augmenting_paths` | Animation | Ford-Fulkerson style: each frame highlights one augmenting path with cumulative flow, using matplotlib.animation |
+| 7 | `animate_alpha_sweep` | Animation | Sweeps α from 0→5, updating both the flow graph (edge thickness) and bar chart per frame — shows how fairness redistributes flow |
+| 8 | `interactive_alpha_slider` | Interactive (ipywidgets) | Real-time α slider that re-solves the convex program and updates graph + bar chart in a Jupyter notebook |
+| 9 | `draw_saddle_point_dual` | 3D surface | Lagrangian $L(f,\lambda) = \log(f) - \lambda(f-c)$ for a 1-edge toy problem; 3D surface + 2D contour with saddle point marked |
+
+**Key libraries used:**
+- `matplotlib.animation.FuncAnimation` — frame-by-frame animations
+- `ipywidgets.FloatSlider` + `interactive_output` — real-time interactivity in Jupyter
+- `matplotlib.colors.LinearSegmentedColormap` / `Normalize` — utilization heatmaps
+- `mpl_toolkits.mplot3d.Axes3D` — 3D saddle surface
+- `plt.cm.RdYlGn` — diverging colormap for utilization (green=slack, red=saturated)
+
+**Why educational:**
+- The polytope visualization makes the "LP is optimizing over a convex polytope" idea concrete.
+- The saddle point surface shows that Lagrangian duality is a geometric fact, not an algebraic trick — the saddle is where the primal (max over f) and dual (min over λ) meet.
+- The augmenting-path animation turns the abstract Ford-Fulkerson algorithm into a visible process.
+- The α-sweep animation shows the continuous deformation from utilitarianism to egalitarianism.
+- The interactive slider lets users *feel* the fairness-efficiency trade-off by dragging α and watching flows redistribute.
+
+**Usage in a notebook:**
+```python
+from example_flow_visualizations import *
+
+G, pos = demo_network()
+flow_val, flow_dict = nx.maximum_flow(G, "s", "t")
+
+# Static visuals
+draw_flow_utilization(G, flow_dict, pos)
+draw_min_cut_partition(G, flow_dict, pos=pos)
+
+# Animation (returned as object; display with HTML or save as gif)
+ani = animate_augmenting_paths(G)
+# In notebook: from IPython.display import HTML; HTML(ani.to_jshtml())
+
+# Interactive (notebook only)
+interactive_alpha_slider(G)
+```
