@@ -515,7 +515,7 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
         f = cp.Variable(n_edges, nonneg=True)
         if alpha < 0.05:
             s_idx = nodes.index(source)
-            obj = cp.Maximize(A[s_idx, :] @ f)
+            obj = cp.Maximize(-np.asarray(A[s_idx, :]).flatten() @ f)
         elif abs(alpha - 1.0) < 0.05:
             obj = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
         elif alpha < 1:
@@ -524,7 +524,7 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
             obj = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
 
         constraints = [f <= cap, A[cons_idx, :] @ f == 0]
-        cp.Problem(obj, constraints).solve(solver=cp.ECOS, verbose=False)
+        cp.Problem(obj, constraints).solve(verbose=False)
 
         all_flows.append(f.value if f.value is not None else np.zeros(n_edges))
 
@@ -629,7 +629,7 @@ def interactive_alpha_slider(G, source="s", sink="t"):
             obj = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
 
         constraints = [f <= cap, A[cons_idx, :] @ f == 0]
-        cp.Problem(obj, constraints).solve(solver=cp.ECOS, verbose=False)
+        cp.Problem(obj, constraints).solve(verbose=False)
         return f.value if f.value is not None else np.zeros(n_edges)
 
     def update_display(alpha):
@@ -796,7 +796,7 @@ if __name__ == "__main__":
                 obj = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
             else:
                 obj = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
-            cp.Problem(obj, [f <= cap, A[ci, :] @ f == 0]).solve(solver=cp.ECOS, verbose=False)
+            cp.Problem(obj, [f <= cap, A[ci, :] @ f == 0]).solve(verbose=False)
             return f.value, edges
 
         def jain(x):

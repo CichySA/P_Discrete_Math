@@ -115,24 +115,25 @@ def solve_alpha_fair_flow(G, source="s", sink="t", alpha=1.0, weights=None):
 
     # Objective: weighted sum of α-utilities
     if alpha == 0:
-        # Linear: maximize weighted sum of source outflows
+        # Linear: maximize net outflow from source
+        # A[s, :] has -1 for outgoing edges → negate for outflow
         s_idx = nodes.index(source)
-        q_source = A[s_idx, :]
-        objective = cp.Maximize(weights @ (q_source * f))
-        # Note: weights on source edges directly
+        q_source = -np.asarray(A[s_idx, :]).flatten()
+        objective = cp.Maximize(q_source @ f)
     elif alpha == 1:
         # Proportional fairness: maximize weighted sum of logs
-        objective = cp.Maximize(weights @ cp.log(f + 1e-9))
+        objective = cp.Maximize(cp.sum(cp.multiply(weights, cp.log(f + 1e-9))))
     elif alpha == 2:
-        # Harmonic fairness: minimize sum of 1/x (equivalent to max -∑ 1/x)
-        objective = cp.Maximize(cp.sum(-weights / (f + 1e-9)))
+        # Harmonic fairness: minimize sum of 1/x → maximize -∑ w_i/x_i
+        objective = cp.Maximize(cp.sum(-cp.multiply(weights, cp.inv_pos(f + 1e-9))))
     else:
         # General α-fairness using power cone / general power
-        # For CVXPY compatibility, use the power atom when possible
         if 0 < alpha < 1:
-            objective = cp.Maximize(weights @ (cp.power(f + 1e-9, 1 - alpha) / (1 - alpha)))
+            term = cp.power(f + 1e-9, 1 - alpha) / (1 - alpha)
+            objective = cp.Maximize(cp.sum(cp.multiply(weights, term)))
         elif alpha > 1:
-            objective = cp.Maximize(weights @ (-cp.power(f + 1e-9, 1 - alpha) / (alpha - 1)))
+            term = -cp.power(f + 1e-9, 1 - alpha) / (alpha - 1)
+            objective = cp.Maximize(cp.sum(cp.multiply(weights, term)))
         else:
             raise ValueError(f"alpha={alpha} not supported")
 

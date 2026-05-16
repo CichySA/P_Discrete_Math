@@ -72,7 +72,7 @@ def solve_primal_fairness(G, source="s", sink="t", alpha=1.0):
 
     if alpha == 0:
         s_idx = nodes.index(source)
-        q = A[s_idx, :]
+        q = -np.asarray(A[s_idx, :]).flatten()
         objective = cp.Maximize(q @ f)
     elif alpha == 1:
         objective = cp.Maximize(cp.sum(cp.log(f + 1e-9)))

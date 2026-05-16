@@ -118,7 +118,7 @@ def solve_flow_lp_pair(G, source="s", sink="t"):
     f = cp.Variable(n_edges, nonneg=True)
     # Source net outflow: rows corresponding to source
     s_idx = nodes.index(source)
-    q = A[s_idx, :]   # +1 for outgoing, -1 for incoming
+    q = -np.asarray(A[s_idx, :]).flatten()   # negate: A[s,:] = -1 for outgoing
 
     primal_obj = cp.Maximize(q @ f)
     primal_constraints = [

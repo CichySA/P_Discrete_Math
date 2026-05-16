@@ -104,7 +104,7 @@ def solve_alpha_fair_flow(G, source="s", sink="t", alpha=1.0):
 
     if alpha == 0:
         s_idx = nodes.index(source)
-        q = A[s_idx, :]
+        q = -np.asarray(A[s_idx, :]).flatten()
         objective = cp.Maximize(q @ f)
     elif alpha == 1:
         objective = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
@@ -183,7 +183,7 @@ def compute_pareto_frontier(G, source="s", sink="t", n_points=20):
     for T_target in total_range:
         f = cp.Variable(n_edges, nonneg=True)
         s_idx = nodes.index(source)
-        q_source = A[s_idx, :]
+        q_source = -np.asarray(A[s_idx, :]).flatten()   # negated for outflow
 
         # Maximize Jain index subject to conservation, capacity, and throughput ≥ T
         # Jain index is not concave, so we use sum of source flows as proxy
@@ -212,7 +212,7 @@ def compute_pareto_frontier(G, source="s", sink="t", n_points=20):
     for J_target in jain_range:
         f = cp.Variable(n_edges, nonneg=True)
         s_idx = nodes.index(source)
-        q_source = A[s_idx, :]
+        q_source = -np.asarray(A[s_idx, :]).flatten()   # negated for outflow
 
         # Jain index constraint: (sum x)^2 ≥ J * n * sum(x^2)
         # This is a second-order cone representable constraint
