@@ -737,7 +737,7 @@ def _solve_alpha_quick(G, s, t, alpha):
 
 def demo_section5_visualizations():
     """Run all visualization functions from example_flow_visualizations."""
-    from example_flow_visualizations import (
+    from examples.example_flow_visualizations import (
         demo_network, draw_flow_utilization, draw_min_cut_partition,
         draw_feasible_polytope_2d, draw_duality_visualizations,
         draw_fairness_dashboard, animate_augmenting_paths,
@@ -805,7 +805,7 @@ def demo_section5_visualizations():
 
     # 5i: Interactive slider
     print("\n[5i] Launching interactive α slider...")
-    from example_flow_visualizations import interactive_alpha_slider
+    from examples.example_flow_visualizations import interactive_alpha_slider
     print("  Drag the slider to explore the fairness-efficiency trade-off in real time.")
     # interactive_alpha_slider(G)
 
@@ -816,7 +816,7 @@ def demo_section5_visualizations():
 
 def demo_section6_3d_visualizations():
     """Demonstrate advanced 3D & stationarity visualizations."""
-    from example_flow_visualizations import (
+    from examples.example_flow_visualizations import (
         demo_network,
         draw_3d_feasible_polytope,
         draw_feasible_region_3d_halfspaces,
@@ -954,7 +954,7 @@ def _solve_boolean_dual_milp(G, source="s", sink="t"):
 
 def demo_section7_kkt_unimodular():
     """Demonstrate KKT + total unimodularity → integral relaxed dual."""
-    from example_flow_visualizations import (
+    from examples.example_flow_visualizations import (
         demo_network,
         draw_relaxed_dual_integrality,
         draw_unimodularity_heatmap,
@@ -1044,7 +1044,7 @@ def demo_section7_kkt_unimodular():
 
 def demo_section8_kkt_force_balance():
     """Demonstrate KKT force balance: gradient vs constraint normals in 2D/3D."""
-    from example_flow_visualizations import (
+    from examples.example_flow_visualizations import (
         demo_network,
         draw_kkt_force_balance_2d,
         draw_kkt_constraint_planes_2d,
