@@ -1189,8 +1189,11 @@ def animate_3d_saddle_point(n_frames=90):
 
     ani = animation.FuncAnimation(fig, update, frames=n_frames,
                                   interval=80, repeat=True, blit=False)
-    plt.close()
-    return ani
+ 
+    ani_saddle = animate_3d_saddle_point(n_frames=90)
+    html_saddle = ani_saddle.to_jshtml()
+    plt.close("all")
+    display(HTML(html_saddle))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
