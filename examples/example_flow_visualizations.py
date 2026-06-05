@@ -514,10 +514,11 @@ def animate_augmenting_paths(G, source="s", sink="t"):
 # 7. ANIMATION — α-Fairness morphing (sweep α from 0 to 5)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
+def animate_alpha_sweep(G, source="s", sinks=None, n_frames=30):
     """
     Animate the flow distribution as α sweeps from 0 (utilitarian)
-    to 5 (strongly fair). Requires cvxpy to solve at each frame.
+    to 5 (strongly fair). Fairness is applied to per-sink inflows.
+    Requires cvxpy to solve at each frame.
     """
     try:
         import cvxpy as cp
@@ -525,12 +526,27 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
         print("cvxpy required for alpha-sweep animation")
         return None
 
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
+    n_sinks = len(sinks)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+
+    # Sink-inflow matrix
+    B = np.zeros((n_sinks, n_edges))
+    for j, (u, v) in enumerate(edges):
+        for k, sk in enumerate(sinks):
+            if v == sk:
+                B[k, j] = 1.0
+
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
 
     alphas = np.linspace(0.01, 5.0, n_frames)
     all_flows = []
@@ -538,15 +554,16 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
     # Pre-compute flows for each α
     for alpha in alphas:
         f = cp.Variable(n_edges, nonneg=True)
+        S = B @ f
         if alpha < 0.05:
             s_idx = nodes.index(source)
             obj = cp.Maximize(-np.asarray(A[s_idx, :]).flatten() @ f)
         elif abs(alpha - 1.0) < 0.05:
-            obj = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
+            obj = cp.Maximize(cp.sum(cp.log(S + 1e-9)))
         elif alpha < 1:
-            obj = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
+            obj = cp.Maximize(cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (1 - alpha))
         else:
-            obj = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
+            obj = cp.Maximize(-cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (alpha - 1))
 
         constraints = [f <= cap, A[cons_idx, :] @ f == 0]
         cp.Problem(obj, constraints).solve(verbose=False)
@@ -580,8 +597,8 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
                                    arrowsize=14, ax=ax_graph,
                                    connectionstyle="arc3,rad=0.08")
 
-        total_flow = sum(flows[i] for i, (u, v) in enumerate(edges) if u == source)
-        ax_graph.set_title(f"α = {alpha:.2f}  |  Total flow = {total_flow:.2f}",
+        total_flow = float(np.sum(B @ flows))
+        ax_graph.set_title(f"α = {alpha:.2f}  |  Total sink inflow = {total_flow:.2f}",
                            fontsize=11, fontweight="bold")
         ax_graph.axis("off")
 
@@ -613,12 +630,13 @@ def animate_alpha_sweep(G, source="s", sink="t", n_frames=30):
 # 8. INTERACTIVE — α-fairness slider (ipywidgets)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def interactive_alpha_slider(G, source="s", sink="t"):
+def interactive_alpha_slider(G, source="s", sinks=None):
     """
     Requires: ipywidgets, cvxpy, and a Jupyter notebook (or %matplotlib widget).
 
-    An interactive slider that re-solves the α-fairness flow and updates
-    both the graph and the bar chart in real time.
+    An interactive slider that re-solves the α-fairness flow (with fairness
+    applied to per-sink inflows) and updates both the graph and the bar chart
+    in real time.
 
     Usage in notebook:
         from example_flow_visualizations import *
@@ -632,26 +650,42 @@ def interactive_alpha_slider(G, source="s", sink="t"):
         print("Requires: pip install ipywidgets cvxpy (and a Jupyter notebook)")
         return
 
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
+    n_sinks = len(sinks)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+
+    # Sink-inflow matrix
+    B = np.zeros((n_sinks, n_edges))
+    for j, (u, v) in enumerate(edges):
+        for k, sk in enumerate(sinks):
+            if v == sk:
+                B[k, j] = 1.0
+
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
 
     pos = nx.spring_layout(G, seed=7)
 
     def solve_for_alpha(alpha):
         f = cp.Variable(n_edges, nonneg=True)
+        S_expr = B @ f
         if alpha < 0.01:
             s_idx = nodes.index(source)
             obj = cp.Maximize(A[s_idx, :] @ f)
         elif abs(alpha - 1.0) < 0.01:
-            obj = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
+            obj = cp.Maximize(cp.sum(cp.log(S_expr + 1e-9)))
         elif alpha < 1:
-            obj = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
+            obj = cp.Maximize(cp.sum(cp.power(S_expr + 1e-9, 1 - alpha)) / (1 - alpha))
         else:
-            obj = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
+            obj = cp.Maximize(-cp.sum(cp.power(S_expr + 1e-9, 1 - alpha)) / (alpha - 1))
 
         constraints = [f <= cap, A[cons_idx, :] @ f == 0]
         cp.Problem(obj, constraints).solve(verbose=False)
@@ -660,7 +694,7 @@ def interactive_alpha_slider(G, source="s", sink="t"):
     def update_display(alpha):
         clear_output(wait=True)
         flows = solve_for_alpha(alpha)
-        total = sum(flows[i] for i, (u, v) in enumerate(edges) if u == source)
+        total = float(np.sum(B @ flows))
 
         fig, (ax_g, ax_b) = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -677,7 +711,7 @@ def interactive_alpha_slider(G, source="s", sink="t"):
                                    edge_color=[color], arrowstyle='-|>',
                                    arrowsize=14, ax=ax_g,
                                    connectionstyle="arc3,rad=0.08")
-        ax_g.set_title(f"α = {alpha:.2f} | Total flow = {total:.2f}", fontsize=11,
+        ax_g.set_title(f"α = {alpha:.2f} | Total sink inflow = {total:.2f}", fontsize=11,
                        fontweight="bold")
         ax_g.axis("off")
 

@@ -51,42 +51,59 @@ def build_simple_network():
     return G
 
 
-# ── 2. Primal: α-fairness flow ──────────────────────────────────────────────
-def solve_primal_fairness(G, source="s", sink="t", alpha=1.0):
+# ── 2. Primal: α-fairness flow (multi-sink aware) ───────────────────────────
+def solve_primal_fairness(G, source="s", sinks=None, alpha=1.0):
     """
     Primal:
-      max  ∑_{(u,v)} U_α(f_{u,v})
+      max  ∑_k U_α(S_k)
       s.t. 0 ≤ f_{u,v} ≤ c_{u,v}
-           ∑_v f_{u,v} - ∑_v f_{v,u} = 0  for u ≠ s,t
-    where U_α is the α-fairness utility.
+           ∑_v f_{u,v} - ∑_v f_{v,u} = 0  for u ∉ {source} ∪ {sinks}
+    where S_k = ∑_{(u,k) ∈ E} f_{u,k} is the total inflow at sink k.
 
     Returns (opt_value, f_opt, edges, nodes, A, cap).
     """
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
+    n_sinks = len(sinks)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
 
+    # Sink-inflow matrix
+    B = np.zeros((n_sinks, n_edges))
+    for j, (u, v) in enumerate(edges):
+        for k, sk in enumerate(sinks):
+            if v == sk:
+                B[k, j] = 1.0
+
     f = cp.Variable(n_edges, nonneg=True)
+    S = B @ f
+
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
 
     if alpha == 0:
         s_idx = nodes.index(source)
         q = -np.asarray(A[s_idx, :]).flatten()
         objective = cp.Maximize(q @ f)
     elif alpha == 1:
-        objective = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
+        objective = cp.Maximize(cp.sum(cp.log(S + 1e-9)))
     elif alpha == 2:
-        objective = cp.Maximize(-cp.sum(cp.inv_pos(f + 1e-9)))
+        objective = cp.Maximize(-cp.sum(cp.inv_pos(S + 1e-9)))
     else:
         if alpha < 1:
-            objective = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
+            objective = cp.Maximize(cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (1 - alpha))
         else:
-            objective = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
+            objective = cp.Maximize(-cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (alpha - 1))
 
     constraints = [
         f <= cap,
-        A[[nodes.index(n) for n in nodes if n not in (source, sink)], :] @ f == 0,
+        A[cons_idx, :] @ f == 0,
     ]
 
     prob = cp.Problem(objective, constraints)
@@ -96,34 +113,26 @@ def solve_primal_fairness(G, source="s", sink="t", alpha=1.0):
 
 
 # ── 3. Construct the Lagrangian and dual function analytically ───────────────
-def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
+def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sinks=None):
     """
     After solving the primal, extract dual information via KKT multipliers.
-
-    The primal (log utility, α=1):
-      max  ∑ log(f_e)
-      s.t. f_e ≤ c_e      →  λ_e ≥ 0  (capacity shadow price)
-           A_cons @ f = 0  →  μ_u       (conservation shadow price, unrestricted)
-
-    Lagrangian:
-      L(f, λ, μ) = ∑ log(f_e) - ∑ λ_e (f_e - c_e) - ∑ μ_u (A_cons @ f)_u
-
-    KKT stationarity (∂L/∂f_e = 0):
-      1/f_e - λ_e - ∑_u μ_u · A_cons[u,e] = 0
-      →  f_e = 1 / (λ_e + ∑_u μ_u · A_cons[u,e])
-
-    Complementary slackness:
-      λ_e · (c_e - f_e) = 0,  λ_e ≥ 0
-
-    Returns analysis as text and numerical verification.
+    Edge-level KKT analysis is unchanged — only the terminal set depends on sinks.
     """
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
+    terminal = {source} | set(sinks)
+
+    # ...existing analysis logic (unchanged — uses source/sink only for
+    # identifying source_edges, sink_edges, internal_edges and cons_idx)...
     print("=== Lagrangian Dual of Log-Fairness Flow ===\n")
 
-    # Identify source edges, internal edges, sink edges
     source_edges = [(u, v) for u, v in edges if u == source]
-    sink_edges = [(u, v) for u, v in edges if v == sink]
+    sink_edges = [(u, v) for u, v in edges if v in set(sinks)]
     internal_edges = [(u, v) for u, v in edges
-                      if u != source and v != sink]
+                      if u != source and v not in set(sinks)]
 
     print("Network structure:")
     print(f"  Source edges: {source_edges}")
@@ -139,8 +148,8 @@ def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
     mu = cp.Variable(n_nodes)                  # conservation multipliers μ_u (unrestricted)
 
     # Incidence matrix rows for conservation (non-terminal nodes)
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
-    A_cons = A[cons_idx, :]
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
+    A_cons = np.asarray(A[cons_idx, :])
 
     # Lagrangian evaluated at optimum of inner minimization:
     # For log utility: f_e*(λ,μ) = 1 / (λ_e + (A_cons^T μ)[e] - [source/sink adjustments])
@@ -157,7 +166,10 @@ def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
     # where a_e = (A_cons^T μ)_e
 
     # Dual objective: minimize g(λ, μ)
-    a = A_cons.T @ mu   # a_e for each edge
+    # Select only internal node potentials, then extract via full μ
+    A_cons_T = cp.Parameter(A_cons.T.shape, value=A_cons.T)
+    mu_int = mu[cons_idx]   # (n_cons,) subset of μ for internal nodes
+    a = A_cons_T @ mu_int   # (n_edges,) = (n_edges, n_cons) @ (n_cons,)
     denom = lam + a + 1e-12
 
     # g(λ, μ) = Σ [log(1/denom_e) - 1] + λ^T c
@@ -170,7 +182,7 @@ def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
 
     lam_opt = lam.value
     mu_opt = mu.value
-    a_opt = A_cons.T @ mu_opt
+    a_opt = A_cons.T @ mu_opt[cons_idx]
 
     # Recover primal from dual
     f_dual = 1.0 / (lam_opt + a_opt + 1e-12)
@@ -218,18 +230,32 @@ def lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
 
 
 # ── 4. Sensitivity: How dual variables change with α ────────────────────────
-def dual_sensitivity(G, source="s", sink="t"):
+def dual_sensitivity(G, source="s", sinks=None):
     """
     For the simple parallel-path network, trace how dual variables
     evolve as α changes from 0 (linear) through 1 (log) toward ∞.
     """
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
     print("\n\n=== Dual Sensitivity Across α Values ===\n")
+
+    # Build sink-inflow matrix for total flow computation
+    tmp_edges = list(G.edges())
+    tmp_nodes = list(G.nodes())
+    n_sinks = len(sinks)
+    B_tmp = np.zeros((n_sinks, len(tmp_edges)))
+    for j, (u, v) in enumerate(tmp_edges):
+        for k, sk in enumerate(sinks):
+            if v == sk:
+                B_tmp[k, j] = 1.0
 
     for alpha in [0.0, 0.5, 1.0, 2.0, 5.0]:
         opt_val, f_opt, edges, nodes, A, cap = solve_primal_fairness(
-            G, source, sink, alpha
+            G, source, sinks, alpha
         )
-        total_flow = sum(f_opt[i] for i, (u, v) in enumerate(edges) if u == source)
+        total_flow = float(np.sum(B_tmp @ f_opt)) if f_opt is not None else 0.0
 
         label = ("utilitarian" if alpha == 0 else
                  "proportional" if alpha == 1 else f"α={alpha}")
@@ -260,16 +286,21 @@ def dual_sensitivity(G, source="s", sink="t"):
 # ── 5. Main ──────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     G = build_simple_network()
+    SINKS = ["t"]
 
     # Solve primal with log utility
-    opt_val, f_opt, edges, nodes, A, cap = solve_primal_fairness(G, alpha=1.0)
+    opt_val, f_opt, edges, nodes, A, cap = solve_primal_fairness(
+        G, sinks=SINKS, alpha=1.0
+    )
 
     print("Primal solution (log utility, proportional fairness):")
     for j, (u, v) in enumerate(edges):
         print(f"  f({u}→{v}) = {f_opt[j]:.4f}  (capacity = {cap[j]:.0f})")
 
     # Run full Lagrangian analysis
-    lam_opt, mu_opt, f_dual = lagrangian_analysis(G, f_opt, edges, nodes, A, cap)
+    lam_opt, mu_opt, f_dual = lagrangian_analysis(
+        G, f_opt, edges, nodes, A, cap, sinks=SINKS
+    )
 
     # Sensitivity across α
-    dual_sensitivity(G)
+    dual_sensitivity(G, sinks=SINKS)

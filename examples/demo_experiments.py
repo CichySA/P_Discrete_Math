@@ -164,30 +164,68 @@ def demo_section1_max_flow_min_cut():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _build_mesh_network():
-    """Mesh network for fairness demo."""
+    """Mesh network with three sinks for fairness demo."""
     G = nx.DiGraph()
     edges = [
         ("s", "a", 10), ("s", "b", 8), ("s", "c", 6),
         ("a", "b", 3), ("a", "d", 7),
-        ("b", "c", 4), ("b", "d", 5), ("b", "t", 3),
-        ("c", "t", 8),
-        ("d", "t", 12),
+        ("b", "c", 4), ("b", "d", 5), ("b", "t2", 3),
+        ("c", "t3", 8),
+        ("d", "t1", 12),
     ]
     for u, v, cap in edges:
         G.add_edge(u, v, capacity=cap)
     return G
 
 
-def _solve_alpha_fair_flow(G, source="s", sink="t", alpha=1.0):
-    """Solve α-fairness flow optimization using CVXPY."""
+def _build_multi_sink_network():
+    """Multi-sink network for fairness demo — three sinks t1, t2, t3."""
+    G = nx.DiGraph()
+    edges = [
+        ("s", "a", 50), ("a", "t1", 50),
+        ("s", "b", 40), ("b", "t2", 40),
+        ("s", "c", 30), ("c", "t3", 30),
+        ("s", "d",  5), ("d", "t2",  5), ("d", "t3",  5),
+    ]
+    for u, v, cap in edges:
+        G.add_edge(u, v, capacity=cap)
+    return G
+
+
+def _build_sink_inflow_matrix(G, edges, sinks):
+    """Build B matrix: B[k,j] = 1 iff edge j points to sinks[k]."""
+    n_sinks = len(sinks)
+    n_edges = len(edges)
+    B = np.zeros((n_sinks, n_edges))
+    for j, (u, v) in enumerate(edges):
+        for k, sk in enumerate(sinks):
+            if v == sk:
+                B[k, j] = 1.0
+    return B
+
+
+def _solve_alpha_fair_flow(G, source="s", sinks=None, alpha=1.0):
+    """
+    Solve α-fairness flow optimization using CVXPY.
+    Fairness objective is applied to per-sink inflows S_k = B @ f.
+    """
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
+    B = _build_sink_inflow_matrix(G, edges, sinks)
 
     f = cp.Variable(n_edges, nonneg=True)
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+    S = B @ f
+
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
     constraints = [f <= cap, A[cons_idx, :] @ f == 0]
 
     if alpha == 0:
@@ -195,13 +233,13 @@ def _solve_alpha_fair_flow(G, source="s", sink="t", alpha=1.0):
         q_source = -np.asarray(A[s_idx, :]).flatten()
         objective = cp.Maximize(q_source @ f)
     elif alpha == 1:
-        objective = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
+        objective = cp.Maximize(cp.sum(cp.log(S + 1e-9)))
     elif alpha == 2:
-        objective = cp.Maximize(-cp.sum(cp.inv_pos(f + 1e-9)))
+        objective = cp.Maximize(-cp.sum(cp.inv_pos(S + 1e-9)))
     elif alpha < 1:
-        objective = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
+        objective = cp.Maximize(cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (1 - alpha))
     else:  # alpha > 1
-        objective = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
+        objective = cp.Maximize(-cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (alpha - 1))
 
     problem = cp.Problem(objective, constraints)
     opt_val = problem.solve()
@@ -213,115 +251,99 @@ def _solve_alpha_fair_flow(G, source="s", sink="t", alpha=1.0):
     return opt_val, flow_dict, edges, f.value
 
 
-def _solve_max_min_fair_flow(G, source="s", sink="t", n_iter=10):
-    """Iterative lexicographic max-min fairness."""
-    edges = list(G.edges())
-    nodes = list(G.nodes())
-    n_edges = len(edges)
-    cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
-    A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
-
-    source_mask = np.array([u == source for u, v in edges], dtype=bool)
-    source_edges_idx = list(np.where(source_mask)[0])
-
-    f = cp.Variable(n_edges, nonneg=True)
-    base_constraints = [f <= cap, A[cons_idx, :] @ f == 0]
-    fixed_lower = np.zeros(n_edges)
-
-    for iteration in range(n_iter):
-        if len(source_edges_idx) == 0:
-            break
-
-        t = cp.Variable()
-        constraints = base_constraints + [t <= f[i] for i in source_edges_idx]
-        constraints += [f[i] >= fixed_lower[i] for i in range(n_edges)]
-
-        prob = cp.Problem(cp.Maximize(t), constraints)
-        prob.solve()
-
-        if f.value is None:
-            break
-
-        source_vals = {i: f.value[i] for i in source_edges_idx}
-        min_idx = min(source_vals, key=source_vals.get)
-        min_val = f.value[min_idx]
-
-        fixed_lower[min_idx] = min_val
-        source_edges_idx = [i for i in source_edges_idx if i != min_idx]
-
-    flow_dict = {u: {} for u in G.nodes()}
-    for j, (u, v) in enumerate(edges):
-        flow_dict[u][v] = float(f.value[j]) if f.value is not None else 0.0
-
-    return flow_dict, {edges[i]: fixed_lower[i] for i in np.where(source_mask)[0]}
-
-
-def _compute_total_flow(flow_dict, source="s"):
+def _compute_total_flow(flow_dict, source="s", sinks=None):
+    """Total flow into all sinks (preferred) or source outflow (fallback)."""
+    if sinks is not None:
+        if isinstance(sinks, str):
+            sinks = [sinks]
+        total = 0.0
+        for sk in sinks:
+            for u, neighbours in flow_dict.items():
+                total += neighbours.get(sk, 0.0)
+        return total
     return sum(flow_dict.get(source, {}).values())
 
 
 def demo_section2_alpha_fairness():
-    """Demonstrate α-Fairness Flow Optimization."""
-    G = _build_mesh_network()
+    """Demonstrate multi-sink α-Fairness Flow Optimization."""
+    SINKS = ["t1", "t2", "t3"]
+    G = _build_multi_sink_network()
+    B = _build_sink_inflow_matrix(G, list(G.edges()), SINKS)
+    edges = list(G.edges())
 
     alphas = [0.0, 0.5, 1.0, 2.0, 5.0]
     results = {}
 
-    print("=== α-Fairness Flow Optimization ===\n")
+    print("=== Multi-Sink α-Fairness Flow Optimization ===\n")
     for alpha in alphas:
-        opt_val, flow_dict, edges, f_vals = _solve_alpha_fair_flow(G, alpha=alpha)
-        total = _compute_total_flow(flow_dict)
-        results[alpha] = {"total_flow": total, "flow_dict": flow_dict,
-                          "f_vals": f_vals, "edges": edges}
+        opt_val, flow_dict, edges, f_vals = _solve_alpha_fair_flow(
+            G, sinks=SINKS, alpha=alpha
+        )
+        total = _compute_total_flow(flow_dict, sinks=SINKS)
+        results[alpha] = {
+            "total_flow": total, "flow_dict": flow_dict,
+            "f_vals": f_vals, "edges": edges,
+        }
         label = ("utilitarian" if alpha == 0 else
                  "proportional" if alpha == 1 else f"α={alpha}")
         print(f"α={alpha} ({label:>20s}): total flow = {total:.4f}")
 
-    std_flow_val, std_flow_dict = nx.maximum_flow(G, "s", "t", capacity="capacity")
-    print(f"\nNetworkX max flow (LP):   total flow = {std_flow_val:.4f}")
-
-    mm_flow_dict, mm_source = _solve_max_min_fair_flow(G)
-    mm_total = _compute_total_flow(mm_flow_dict)
-    print(f"Max-min fair (iterative): total flow = {mm_total:.4f}")
-    print(f"  Source edge flows: {mm_source}")
-
     # ── Visualize ──
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5))
 
+    # Left: throughput vs α
     ax = axes[0]
     alphas_plot = list(results.keys())
     totals = [results[a]["total_flow"] for a in alphas_plot]
     ax.plot(alphas_plot, totals, "o-", linewidth=2, markersize=8, color="#377eb8")
-    ax.axhline(y=std_flow_val, color="grey", linestyle="--",
-               label=f"Standard max flow = {std_flow_val:.2f}")
     ax.set_xlabel("α (fairness parameter)")
-    ax.set_ylabel("Total flow")
+    ax.set_ylabel("Total flow into all sinks")
     ax.set_title("Price of Fairness: Throughput vs. α")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # Middle: per-sink inflow by α
     ax = axes[1]
-    edges_labels = [f"{u}→{v}" for u, v in results[0.0]["edges"]]
-    x = np.arange(len(edges_labels))
-    width = 0.15
+    x = np.arange(len(SINKS))
+    width = 0.18
     for i, alpha in enumerate([0.0, 1.0, 5.0]):
-        f_vals = results[alpha]["f_vals"]
+        flow_dict = results[alpha]["flow_dict"]
+        sink_vals = []
+        for sk in SINKS:
+            sink_vals.append(sum(flow_dict[u].get(sk, 0.0) for u in flow_dict))
         offset = (i - 1) * width
         label = "α=0 (linear)" if alpha == 0 else f"α={alpha}"
-        ax.bar(x + offset, f_vals, width, label=label, alpha=0.8)
+        ax.bar(x + offset, sink_vals, width, label=label, alpha=0.8)
+    ax.set_xlabel("Sink")
+    ax.set_ylabel("Inflow")
+    ax.set_title("Per-Sink Inflow by α")
+    ax.set_xticks(x)
+    ax.set_xticklabels(SINKS)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis="y")
+
+    # Right: per-edge flow distribution
+    ax = axes[2]
+    edges_labels = [f"{u}→{v}" for u, v in results[0.0]["edges"]]
+    x_e = np.arange(len(edges_labels))
+    for i, alpha in enumerate([0.0, 1.0, 5.0]):
+        f_vals = results[alpha]["f_vals"]
+        offset = (i - 1) * 0.15
+        label = "α=0 (linear)" if alpha == 0 else f"α={alpha}"
+        ax.bar(x_e + offset, f_vals, 0.15, label=label, alpha=0.8)
     ax.set_xlabel("Edge")
     ax.set_ylabel("Flow")
     ax.set_title("Edge Flow Distribution by α")
-    ax.set_xticks(x)
+    ax.set_xticks(x_e)
     ax.set_xticklabels(edges_labels, rotation=45, ha="right", fontsize=8)
     ax.legend()
     ax.grid(True, alpha=0.3, axis="y")
     plt.tight_layout()
     plt.show()
 
-    print("\nKey insight: α=0 is utilitarianism, α=1 is proportional fairness,")
-    print("α→∞ approaches max-min (Rawlsian) fairness.")
+    print("\nKey insight (multi-sink): The fairness unit is the TOTAL flow")
+    print("arriving at each sink, not individual edge flows. α=0 maximises")
+    print("total throughput; α=1 balances inflows across sinks via log-sum.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -341,16 +363,24 @@ def _build_simple_network():
     return G
 
 
-def _solve_primal_fairness(G, source="s", sink="t", alpha=1.0):
-    """Solve α-fairness primal."""
+def _solve_primal_fairness(G, source="s", sinks=None, alpha=1.0):
+    """Solve α-fairness primal with per-sink inflow objective."""
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
+    B = _build_sink_inflow_matrix(G, edges, sinks)
 
     f = cp.Variable(n_edges, nonneg=True)
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+    S = B @ f
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
     constraints = [f <= cap, A[cons_idx, :] @ f == 0]
 
     if alpha == 0:
@@ -358,34 +388,40 @@ def _solve_primal_fairness(G, source="s", sink="t", alpha=1.0):
         q = -np.asarray(A[s_idx, :]).flatten()
         objective = cp.Maximize(q @ f)
     elif alpha == 1:
-        objective = cp.Maximize(cp.sum(cp.log(f + 1e-9)))
+        objective = cp.Maximize(cp.sum(cp.log(S + 1e-9)))
     elif alpha < 1:
-        objective = cp.Maximize(cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (1 - alpha))
+        objective = cp.Maximize(cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (1 - alpha))
     else:
-        objective = cp.Maximize(-cp.sum(cp.power(f + 1e-9, 1 - alpha)) / (alpha - 1))
+        objective = cp.Maximize(-cp.sum(cp.power(S + 1e-9, 1 - alpha)) / (alpha - 1))
 
     prob = cp.Problem(objective, constraints)
     opt_val = prob.solve()
     return opt_val, f.value, edges, nodes, A, cap
 
 
-def _lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
+def _lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sinks=None):
     """Construct Lagrangian dual for log-utility flow, verify KKT."""
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
+    terminal = {source} | set(sinks)
     n_edges = len(edges)
     n_nodes = len(nodes)
 
     print("=== Lagrangian Dual of Log-Fairness Flow ===\n")
 
     source_edges = [(u, v) for u, v in edges if u == source]
-    sink_edges = [(u, v) for u, v in edges if v == sink]
-    internal_edges = [(u, v) for u, v in edges if u != source and v != sink]
+    sink_edges = [(u, v) for u, v in edges if v in set(sinks)]
+    internal_edges = [(u, v) for u, v in edges if u != source and v not in set(sinks)]
 
     print("Network structure:")
     print(f"  Source edges: {source_edges}")
     print(f"  Internal edges: {internal_edges}")
     print(f"  Sink edges: {sink_edges}")
 
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
     A_cons = A[cons_idx, :]
 
     # ── Dual variables ──
@@ -432,13 +468,24 @@ def _lagrangian_analysis(G, f_opt, edges, nodes, A, cap, source="s", sink="t"):
     return lam_opt, mu_opt, f_dual
 
 
-def _dual_sensitivity(G, source="s", sink="t"):
+def _dual_sensitivity(G, source="s", sinks=None):
     """Trace dual variables across α values."""
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     print("\n\n=== Dual Sensitivity Across α Values ===\n")
 
+    # Build sink-inflow matrix for total flow computation
+    tmp_edges = list(G.edges())
+    B_tmp = _build_sink_inflow_matrix(G, tmp_edges, sinks)
+
     for alpha in [0.0, 0.5, 1.0, 2.0, 5.0]:
-        opt_val, f_opt, edges, nodes, A, cap = _solve_primal_fairness(G, source, sink, alpha)
-        total_flow = sum(f_opt[i] for i, (u, v) in enumerate(edges) if u == source)
+        opt_val, f_opt, edges, nodes, A, cap = _solve_primal_fairness(
+            G, source, sinks, alpha
+        )
+        total_flow = float(np.sum(B_tmp @ f_opt)) if f_opt is not None else 0.0
 
         label = ("utilitarian" if alpha == 0 else
                  "proportional" if alpha == 1 else f"α={alpha}")
@@ -462,7 +509,10 @@ def _dual_sensitivity(G, source="s", sink="t"):
 def demo_section3_lagrangian_dual():
     """Demonstrate Lagrangian Dual & KKT Conditions."""
     G = _build_simple_network()
-    opt_val, f_opt, edges, nodes, A, cap = _solve_primal_fairness(G, alpha=1.0)
+    SINKS = ["t"]
+    opt_val, f_opt, edges, nodes, A, cap = _solve_primal_fairness(
+        G, sinks=SINKS, alpha=1.0
+    )
 
     print("Primal solution (log utility, proportional fairness):")
     for j, (u, v) in enumerate(edges):
@@ -470,7 +520,9 @@ def demo_section3_lagrangian_dual():
 
     print(f"\nOptimal log-utility value: {opt_val:.6f}")
 
-    lam_opt, mu_opt, f_dual = _lagrangian_analysis(G, f_opt, edges, nodes, A, cap)
+    lam_opt, mu_opt, f_dual = _lagrangian_analysis(
+        G, f_opt, edges, nodes, A, cap, sinks=SINKS
+    )
 
     print(f"\n{'─' * 50}")
     print("Dual variables μ (node potentials):")
@@ -483,7 +535,7 @@ def demo_section3_lagrangian_dual():
         if lam_opt[j] > 0.001:
             print(f"  λ_({u}→{v}) = {lam_opt[j]:.6f} (edge saturated)")
 
-    _dual_sensitivity(G)
+    _dual_sensitivity(G, sinks=SINKS)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -491,12 +543,15 @@ def demo_section3_lagrangian_dual():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _build_parallel_network():
-    """Two parallel s→t paths: wide + narrow."""
+    """Three sinks with unequal wide paths. High PoF."""
     G = nx.DiGraph()
-    G.add_edge("s", "a", capacity=100)
-    G.add_edge("a", "t", capacity=100)
-    G.add_edge("s", "b", capacity=2)
-    G.add_edge("b", "t", capacity=2)
+    edges = [
+        ("s", "a", 100), ("a", "t1", 100),   # wide path to t1
+        ("s", "b",   2), ("b", "t2",   2),   # narrow path to t2
+        ("s", "c",   2), ("c", "t3",   2),   # narrow path to t3
+    ]
+    for u, v, cap in edges:
+        G.add_edge(u, v, capacity=cap)
     return G
 
 
@@ -510,26 +565,44 @@ def _jain_index(flows):
     return float(np.sum(x) ** 2 / (n * np.sum(x ** 2)))
 
 
-def _compute_pareto_frontier(G, source="s", sink="t", n_points=20):
-    """Compute (efficiency, fairness) pairs via ε-constrained optimization."""
+def _sink_jain(f_vals, B):
+    """Jain index on sink inflows B @ f_vals."""
+    inflows = B @ f_vals
+    inflows = inflows[inflows > 1e-9]
+    if len(inflows) == 0:
+        return 1.0
+    n = len(inflows)
+    return float((np.sum(inflows) ** 2) / (n * np.sum(inflows ** 2)))
+
+
+def _compute_pareto_frontier(G, source="s", sinks=None, n_points=15):
+    """Compute (efficiency, fairness) pairs via ε-constrained optimization.
+    Fairness is applied to per-sink inflows.
+    """
+    if sinks is None:
+        sinks = ["t"]
+    elif isinstance(sinks, str):
+        sinks = [sinks]
+
     edges = list(G.edges())
     nodes = list(G.nodes())
     n_edges = len(edges)
+    n_sinks = len(sinks)
     cap = np.array([G[u][v]["capacity"] for u, v in edges], dtype=float)
     A = np.asarray(nx.incidence_matrix(G, oriented=True, dtype=float).todense())
-    cons_idx = [nodes.index(n) for n in nodes if n not in (source, sink)]
+    B = _build_sink_inflow_matrix(G, edges, sinks)
 
-    source_mask = np.array([u == source for u, v in edges], dtype=bool)
-    source_edges_idx = list(np.where(source_mask)[0])
+    terminal = {source} | set(sinks)
+    cons_idx = [nodes.index(n) for n in nodes if n not in terminal]
 
     # Extremes
-    _, flow_dict_max, _, f_max = _solve_alpha_fair_flow(G, source, sink, alpha=0.0)
-    total_max = _compute_total_flow(flow_dict_max)
-    jain_at_max = _jain_index(f_max[source_mask])
+    _, flow_dict_max, _, f_max = _solve_alpha_fair_flow(G, source, sinks, alpha=0.0)
+    total_max = _compute_total_flow(flow_dict_max, sinks=sinks)
+    jain_at_max = _sink_jain(f_max, B)
 
-    _, flow_dict_fair, _, f_fair = _solve_alpha_fair_flow(G, source, sink, alpha=10.0)
-    total_fair = _compute_total_flow(flow_dict_fair)
-    jain_at_fair = _jain_index(f_fair[source_mask])
+    _, flow_dict_fair, _, f_fair = _solve_alpha_fair_flow(G, source, sinks, alpha=10.0)
+    total_fair = _compute_total_flow(flow_dict_fair, sinks=sinks)
+    jain_at_fair = _sink_jain(f_fair, B)
 
     # Frontier 1: max fairness s.t. throughput ≥ T
     frontier_1 = []
@@ -543,48 +616,38 @@ def _compute_pareto_frontier(G, source="s", sink="t", n_points=20):
             A[cons_idx, :] @ f == 0,
             q_source @ f >= T_target,
         ]
-        # max fairness ≡ max sum of logs on source edges  (α=1, proportional)
-        obj = cp.Maximize(cp.sum(cp.log(f[source_edges_idx] + 1e-6)))
-        prob = cp.Problem(obj, constraints)
-        try:
-            prob.solve()
-        except cp.error.DCPError:
-            # fallback: maximize negative inverse of source flows (α=2 fairness)
-            obj_fb = cp.Maximize(-cp.sum(cp.inv_pos(f[source_edges_idx] + 1e-6)))
-            prob = cp.Problem(obj_fb, constraints)
-            prob.solve()
+        # Log-sum on sink inflows (α=1 proportional fairness — always DCP)
+        obj = cp.Maximize(cp.sum(cp.log(B @ f + 1e-9)))
+        cp.Problem(obj, constraints).solve()
 
         if f.value is not None:
-            actual_total = float(q_source @ f.value)
-            actual_jain = _jain_index(f.value[source_mask])
+            actual_total = float(np.sum(B @ f.value))
+            actual_jain = _sink_jain(f.value, B)
             frontier_1.append((actual_total, actual_jain))
 
     # Frontier 2: max throughput s.t. Jain ≥ J
     frontier_2 = []
-    n_source = len(source_edges_idx)
     for J_target in np.linspace(jain_at_max, jain_at_fair, n_points):
         f = cp.Variable(n_edges, nonneg=True)
         s_idx = nodes.index(source)
         q_source = -np.asarray(A[s_idx, :]).flatten()
-
-        # Jain constraint: (Σx)² ≥ J · n · Σx²  ⇔  Σx ≥ √(J·n) · ||x||₂   (SOC)
-        # Use cp.SOC(t, x) which means ||x||₂ ≤ t
+        sink_f = B @ f
+        sum_sink = cp.sum(sink_f)
         t = cp.Variable()
-        sum_source = cp.sum(f[source_edges_idx])
 
+        # SOC reformulation: ||B @ f||₂ ≤ Σ S_k / √(J · n_sinks)
         constraints = [
             f <= cap,
             A[cons_idx, :] @ f == 0,
-            cp.SOC(t, f[source_edges_idx]),
-            t <= sum_source / np.sqrt(J_target * n_source),
+            cp.SOC(t, sink_f),
+            t <= sum_sink / np.sqrt(J_target * n_sinks),
         ]
         obj = cp.Maximize(q_source @ f)
-        prob = cp.Problem(obj, constraints)
-        prob.solve()
+        cp.Problem(obj, constraints).solve()
 
         if f.value is not None:
-            actual_total = float(q_source @ f.value)
-            actual_jain = _jain_index(f.value[source_mask])
+            actual_total = float(np.sum(B @ f.value))
+            actual_jain = _sink_jain(f.value, B)
             frontier_2.append((actual_total, actual_jain))
 
     return (total_max, jain_at_max), (total_fair, jain_at_fair), frontier_1, frontier_2
@@ -650,7 +713,8 @@ def _multi_commodity_fairness():
 
 
 def demo_section4_price_of_fairness():
-    """Demonstrate Price of Fairness & Pareto Frontier."""
+    """Demonstrate Price of Fairness & Pareto Frontier (sink-inflow based)."""
+    SINKS = ["t1", "t2", "t3"]
     networks = {
         "Parallel (high PoF)": _build_parallel_network(),
         "Mesh (moderate PoF)": _build_mesh_network(),
@@ -662,14 +726,18 @@ def demo_section4_price_of_fairness():
     print("-" * 75)
 
     for name, G in networks.items():
-        _, flow_dict_max, edges, f_vals_max = _solve_alpha_fair_flow(G, alpha=0.0)
-        total_max = _compute_total_flow(flow_dict_max)
-        _, flow_dict_fair, _, f_vals_fair = _solve_alpha_fair_flow(G, alpha=1.0)
-        total_fair = _compute_total_flow(flow_dict_fair)
+        edges = list(G.edges())
+        B = _build_sink_inflow_matrix(G, edges, SINKS)
 
-        source_mask = np.array([u == "s" for u, v in edges], dtype=bool)
-        j_max = _jain_index(f_vals_max[source_mask])
-        j_fair = _jain_index(f_vals_fair[source_mask])
+        _, flow_dict_max, _, f_vals_max = _solve_alpha_fair_flow(
+            G, sinks=SINKS, alpha=0.0)
+        total_max = _compute_total_flow(flow_dict_max, sinks=SINKS)
+        _, flow_dict_fair, _, f_vals_fair = _solve_alpha_fair_flow(
+            G, sinks=SINKS, alpha=1.0)
+        total_fair = _compute_total_flow(flow_dict_fair, sinks=SINKS)
+
+        j_max = _sink_jain(f_vals_max, B)
+        j_fair = _sink_jain(f_vals_fair, B)
 
         pof = (total_max - total_fair) / total_max * 100 if total_max > 0 else 0
         print(f"{name:<25s} {total_max:>10.2f} {total_fair:>10.2f} "
@@ -677,7 +745,8 @@ def demo_section4_price_of_fairness():
 
     print("\n\n=== Pareto Frontier: Efficiency vs. Fairness (Mesh Network) ===\n")
     G_mesh = _build_mesh_network()
-    (t_max, j_max), (t_fair, j_fair), frontier_1, frontier_2 = _compute_pareto_frontier(G_mesh)
+    (t_max, j_max), (t_fair, j_fair), frontier_1, frontier_2 = \
+        _compute_pareto_frontier(G_mesh, sinks=SINKS)
 
     print(f"Max-flow point:       total={t_max:.2f}, Jain={j_max:.4f}")
     print(f"Max-fair point:       total={t_fair:.2f}, Jain={j_fair:.4f}")
@@ -697,7 +766,7 @@ def demo_section4_price_of_fairness():
     ax.scatter([t_fair], [j_fair], marker="*", s=200, color="orange", zorder=5,
                label="α=5 fair")
     ax.set_xlabel("Total Throughput (efficiency)")
-    ax.set_ylabel("Jain's Fairness Index")
+    ax.set_ylabel("Jain's Fairness Index (sink inflows)")
     ax.set_title("Pareto Frontier: Efficiency vs. Fairness")
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -737,7 +806,7 @@ def _solve_alpha_quick(G, s, t, alpha):
 
 def demo_section5_visualizations():
     """Run all visualization functions from example_flow_visualizations."""
-    from examples.example_flow_visualizations import (
+    from example_flow_visualizations import (
         demo_network, draw_flow_utilization, draw_min_cut_partition,
         draw_feasible_polytope_2d, draw_duality_visualizations,
         draw_fairness_dashboard, animate_augmenting_paths,
@@ -805,7 +874,7 @@ def demo_section5_visualizations():
 
     # 5i: Interactive slider
     print("\n[5i] Launching interactive α slider...")
-    from examples.example_flow_visualizations import interactive_alpha_slider
+    from example_flow_visualizations import interactive_alpha_slider
     print("  Drag the slider to explore the fairness-efficiency trade-off in real time.")
     # interactive_alpha_slider(G)
 
@@ -816,7 +885,7 @@ def demo_section5_visualizations():
 
 def demo_section6_3d_visualizations():
     """Demonstrate advanced 3D & stationarity visualizations."""
-    from examples.example_flow_visualizations import (
+    from example_flow_visualizations import (
         demo_network,
         draw_3d_feasible_polytope,
         draw_feasible_region_3d_halfspaces,
@@ -954,7 +1023,7 @@ def _solve_boolean_dual_milp(G, source="s", sink="t"):
 
 def demo_section7_kkt_unimodular():
     """Demonstrate KKT + total unimodularity → integral relaxed dual."""
-    from examples.example_flow_visualizations import (
+    from example_flow_visualizations import (
         demo_network,
         draw_relaxed_dual_integrality,
         draw_unimodularity_heatmap,
@@ -1044,7 +1113,7 @@ def demo_section7_kkt_unimodular():
 
 def demo_section8_kkt_force_balance():
     """Demonstrate KKT force balance: gradient vs constraint normals in 2D/3D."""
-    from examples.example_flow_visualizations import (
+    from example_flow_visualizations import (
         demo_network,
         draw_kkt_force_balance_2d,
         draw_kkt_constraint_planes_2d,
