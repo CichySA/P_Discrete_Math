@@ -42,6 +42,16 @@
 }
 
 
+\newcommand*{\mylistref}[2][]{%
+  \hyperref[lst:#2]{%
+    \textcolor{centrale_red}{Listing~\ref*{lst:#2}}%
+    \ifx\\#1\\%
+    \else
+      \,#1%
+    \fi
+  }%
+}
+
 \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
 
 
@@ -224,3 +234,122 @@ draw=black
 \usepackage{tabularx}
 \usetikzlibrary{quotes}
 \usetikzlibrary{arrows.meta}
+
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{theorem}
+\newtheorem{theorem}{Theorem}[section]
+
+\usepackage{mathrsfs}
+
+\usepackage{minted}
+
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{best}{RGB}{161,251,142} % green!20 like
+\definecolor{worst}{RGB}{255,143,140}
+\definecolor{exact}{RGB}{255,254,145}
+
+% --- COULEURS STYLE MATLAB ---
+\definecolor{mlmainblue}{rgb}{0,0,1}          % Mots-clés
+\definecolor{mlgreen}{rgb}{0.13,0.55,0.13}    % Commentaires
+\definecolor{mlpurple}{rgb}{0.63,0.08,0.82}   % Strings
+\definecolor{mlbackground}{rgb}{0.98,0.98,0.98} % Fond gris très clair/blanc
+
+\definecolor{mlbackground}{rgb}{0.98,0.98,0.98}
+
+% --- ENVIRONNEMENT DÉDIÉ codeMatlab ---
+\lstnewenvironment{codeMatlab}[1][]{
+    \lstset{
+        language=Matlab,
+        backgroundcolor=\color{mlbackground},   
+        commentstyle=\color{mlgreen},
+        keywordstyle=\color{mlmainblue},
+        stringstyle=\color{mlpurple},
+        % On garde la taille de police 10.5pt pour l'harmonie avec FreeFEM
+        basicstyle=\ttfamily\fontsize{10.5pt}{13pt}\selectfont, 
+        breakatwhitespace=false,         
+        breaklines=true,                 
+        captionpos=b,                    
+        keepspaces=true,                 
+        numbers=left,                    
+        numbersep=5pt,
+        numberstyle=\tiny\color{gray},                  
+        showspaces=false,                
+        showstringspaces=false,
+        tabsize=4,
+        % Réutilisation de votre bloc literate pour les accents
+        literate=%
+        {é}{{\'e}}{1}{è}{{\`e}}{1}{à}{{\`a}}{1}{ç}{{\c{c}}}{1}{ù}{{\`u}}{1}
+        {É}{{\'E}}{1}{È}{{\`E}}{1}{À}{{\`A}}{1}{ê}{{\^e}}{1}{î}{{\^i}}{1}
+        {ô}{{\^o}}{1}{û}{{\^u}}{1}{â}{{\^a}}{1},
+        #1 
+    }
+}{}
+
+\lstdefinestyle{Bash}
+{language=bash,
+numbers=left,                    
+numbersep=5pt,
+commentstyle=\color{mlgreen},
+numberstyle=\color{gray},
+keywordstyle=\color{blue},
+basicstyle=\ttfamily,
+morekeywords={peter@kbpet},
+alsoletter={:~\$},
+morekeywords=[2]{peter@kbpet:},
+keywordstyle=[2]{\color{red}},
+literate={\$}{{\textcolor{red}{\$}}}1 
+         {:}{{\textcolor{red}{:}}}1
+         {~}{{\textcolor{red}{\textasciitilde}}}1,
+}
+
+% Default fixed font does not support bold face
+\DeclareFixedFont{\ttb}{T1}{txtt}{bx}{n}{10} % for bold
+\DeclareFixedFont{\ttm}{T1}{txtt}{m}{n}{10}  % for normal
+
+% Custom colors
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+
+
+% Python style for highlighting
+\newcommand\pythonstyle{\lstset{
+language=Python,
+basicstyle=\ttm,
+morekeywords={self},              % Add keywords here
+keywordstyle=\ttb\color{deepblue},
+emph={MyClass,__init__},          % Custom highlighting
+emphstyle=\ttb\color{deepred},    % Custom highlighting style
+stringstyle=\color{deepgreen},
+frame=tb,                         % Any extra options here
+showstringspaces=false,
+captionpos=b,
+breaklines=true
+}}
+
+
+% Python environment
+\lstnewenvironment{python}[1][]
+{
+\pythonstyle
+\lstset{#1}
+}
+{}
+
+% Python for external files
+\newcommand\pythonexternal[2][]{{
+\pythonstyle
+\lstinputlisting[#1]{#2}}}
+
+% Python for inline
+\newcommand\pythoninline[1]{{\pythonstyle\lstinline!#1!}}

@@ -1,133 +1,8 @@
-\documentclass[12pt, openany]{article}
 
-\usepackage{import}
-\usepackage{config}
+\section{NOTEPAD }
 
-\usepackage{xcolor}
-\usepackage{makeidx}
-\usepackage{multicol}
+\section{Graph-based optimization for resource allocation during an outbreak (maximum flow)}
 
-\usepackage[]{caption}
-
-\usepackage[sorting=none]{biblatex}
-
-\addbibresource{biblio.bib}
-\renewcommand*{\bibfont}{\small}
-%\setlength{\bibitemsep}{0pt} % Pas d'espace entre les références
-
-
-%{\fontsize{10pt}{14pt}\selectfont}
-%{\scriptsize}
-
-
-
-
-
-\begin{document}
-\lstset{inputencoding=utf8/latin1}
-\renewcommand{\labelitemi}{$\bullet$}
-
-\begin{titlepage}
-  \begin{sffamily}
-  \begin{center}
-
-    \includegraphics[width=0.9\linewidth]{logo.png}~\\[0.5cm]
-
-    %\textsc{ds\LARGE }\\[2cm]
-
-    \textsc{\Large Discrete Mathematics \\ Project - Group 3}\\[1.5cm]
-
-
-    \color{centrale_red}\HRule \\[0cm]
-    { \huge \bfseries \color{centrale_red} Optimization techniques\\ -- Agreement of Scope --\\ }
-
-    \HRule \\[0.5cm]
-    \color{black}
-    %\includegraphics[width=0.8\textwidth]{CM/granta/moduleYoung_coursIDM.png}
-    %\begin{center}
-     %    Les différentes familles de matériaux illustrées par leur module d'Young\\(Source : \cite{diapoIDMcha1})
-    %\end{center}
-    %\\%[2cm]
-
-    \vspace{2.5cm}
-
-    \begin{minipage}{0.4\textwidth}
-      \begin{flushleft} \large
-      \textit{\textbf{Students}} \\[0.5cm]
-      Szymon \textsc{Cichy}\\
-    Maxime \textsc{Luce} \\
-
-  
-      \end{flushleft}
-    \end{minipage}
-    \begin{minipage}{0.4\textwidth}
-      \begin{flushright} \large
-      \textit{\textbf{Teacher}} \\[0.5cm]
-       Marcin \textsc{Bodych}\\
-      \end{flushright}
-    \end{minipage}
-
-    \vfill
-
-
-    {Academic year 2025/2026 -- \today}
-
-  \end{center}
-  \end{sffamily}
-\end{titlepage}
-
-\clearpage % end title page
-
-%\begingroup
-%  \pagestyle{empty}
-%  \null
-%  \newpage
-%\endgroup
-
-\tableofcontents
-
-\newpage
-
-\section{Introduction}
-
-\section{Succinct description of the possible topics}
-
-\subsection{Implementation and Comparative Analysis of Simplex and Karmarkar Methods for Linear Programming}
-
-\subsubsection{Definition and mathematical modeling}
-
-Let's consider the general problem of optimization of finding the maximum or the minimum of a function.
-
-Linear Programming consist in finding the best possible result in a mathematical model under of \emph{linear} constraints.
-
-Let's define $x$ a vector that contains all decision's variables, $c$ the vector wih all the coefficients of the function, $A$ the matrix of constraints coefficients and $b$ the vector of limit of ressource.
-
-The general problem is therefore 
-
-\begin{equation}
-    \inf_x c^T x \qquad \text{with}  \qquad \begin{cases}
-        Ax\leq b\\
-        x \geq 0 (?)
-    \end{cases}
-\end{equation}
-
-The space given by the constraints $Ax\leq b$ is therefore \emph{convex}.
-
-\subsubsection{Solving the optimization problem}
-
-The first way to solve it is to consider an important theorem of linear programming that tells that if a solution exist, it is situated on the border of the convex space.
-
-Therefore, one of the first algorithm is the \emph{simplex} one that browse the border in order to find the solution.
-
-The main problem of this algorithm is that it is not optimal to find the solution fast. Narendra Karmarkar proposed another algorithmme based on the idea of starting the search from the center of the space and not the border. This algorithm is iterative and, at each step, we reconsider the center point and go to the better point following the gradient way.
-
-\subsubsection{Comparing the two algorithms}
-
-Goals : difference between theoretical complexity and practical complexity, size of the problem considered
-
-\subsection{Integer Programming Formulations and Linear Programming Relaxations for the Vertex Cover Problem}
-
-\subsection{Graph-based optimization for resource allocation during an outbreak (maximum flow)}
 
 \subsubsection{Flow network}
 \paragraph{Flow Network}
@@ -441,11 +316,11 @@ G(t)=(V,E(t))
 
 Let \(G=(V,E)\) be a directed graph with source \(s\), sink \(t\), and capacity vector
 \[
-u \in \mathbb{R}^n_{\ge 0},
+u \in \mathbb{R}^m_{\ge 0},
 \]
 where the edges are indexed as
 \[
-E=\{e_1,e_2,\dots,e_n\}.
+E=\{e_1,e_2,\dots,e_m\}.
 \]
 
 Let the flow variables be collected in the vector
@@ -598,6 +473,3 @@ Therefore, the maximum flow problem in standard matrix form is
 \subsection{Resource-aware scheduling heuristics for epidemic responses}
 
 \subsection{Flow decomposition techniques for dynamic network optimization}
-
-
-\end{document} 
