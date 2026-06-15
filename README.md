@@ -18,7 +18,7 @@ source .venv/bin/activate
 uv sync
 ```
 
-All dependencies (networkx, cvxpy, matplotlib, pulp, scipy, jupyter, …) are declared in `pyproject.toml` and will be installed with sync.
+All dependencies are declared in `pyproject.toml` and will be installed with sync.
 
 ## Repository guide
 
