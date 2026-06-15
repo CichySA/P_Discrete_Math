@@ -210,4 +210,10 @@ __marimo__/
 .vs/
 *.zip
 
-Reports/aux/
+Reports
+Reports/Project/AgreementOfScope.tex
+Reports/Project/NOTEAgreementOfScope.tex
+uv.lock
+.gitattributes
+*.synctex.gz
+.vscode
