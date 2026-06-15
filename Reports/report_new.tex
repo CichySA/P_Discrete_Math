@@ -1066,15 +1066,15 @@ This translates to the optimizer maximizing geometric mean instead of arithmetic
 \subsubsection{Alpha Fairness}
 Alpha fairness is a family of fairness objectives that should unify our definitions:
 \[
-U(x)=
+U_\alpha(x)=
 \begin{cases}
 \displaystyle \sum_i \frac{x_i^{1-\alpha}}{1-\alpha},
-& \alpha \in [0,1)\cup(1,\infty] \\[1 em]
+& \alpha \in [0,1)\cup(1,\infty) \\[1 em]
 \displaystyle \sum_i \log(x_i),
 & \alpha = 1
 \end{cases}
 \]
-Note, that for $\alpha = 0$, the objective is a simple fariness-free total flow.
+Note, that for $\alpha = 0$, the objective is a simple fairness-free total flow.
 
 As for min-max fairness, the solution \(x^{\mathrm{MMF}}\) can be approximated with high $\alpha$, as shown in \cite{mo2000fair}:
 
@@ -1085,18 +1085,12 @@ x^*(\alpha)
 x^{\mathrm{MMF}}.
 \]
 
-This creates an unified definition of our fairness objectives, parametrized by a single parameter $\alpha$.
+This creates a unified definition of our fairness objectives, parametrized by a single parameter $\alpha$. The parameter $\alpha$ controls how much the objective penalises imbalance: $\alpha = 0$ ignores it entirely, $\alpha = 1$ gives proportional fairness, and $\alpha \to \infty$ maximises only the worst-off allocation. As we will demonstrate, $\alpha = 1$ is often the most appropriate choice under uniform conditions, and increasing $\alpha$ beyond this point can be counterproductive.
 
 \subsection{Solving for fairness using convex optimization}
 
-We have previously used Linear Programming formulations for max-flow and min-cut problems. In those cases, both objectives and constraints are linear. In order to solve nonlinear objectives such as $\log(x)$, we will have to use the closely related \textbf{convex optimization}.
-
-In truth, in our program nothing changes, because the optimizer used was already convex - all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
+We have previously used Linear Programming formulations for max-flow and min-cut problems. In those cases, both objectives and constraints are linear. In order to solve nonlinear objectives such as $\log(x)$, we will use the closely related \textbf{convex optimization}. In truth, in our program nothing changes, because the optimizer used was already convex - all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
  
-Let us precisely define the problems precisely
-
-
-
 \subsection{Cost of fairness - dual problem and shadow prices}
 
 

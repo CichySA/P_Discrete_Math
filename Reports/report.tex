@@ -813,11 +813,11 @@ x^*(\alpha)
 x^{\mathrm{MMF}}.
 \]
 
-This creates a unified definition of our fairness objectives, parametrized by a single parameter $\alpha$. The parameter $\alpha$ controls how much the objective penalises imbalance: $\alpha = 0$ ignores it entirely, $\alpha = 1$ gives proportional fairness (the Nash bargaining solution), and $\alpha \to \infty$ maximises only the worst-off allocation. As we will demonstrate, $\alpha = 1$ is often the most appropriate choice under uniform conditions, and increasing $\alpha$ beyond this point can be counterproductive.
+This creates a unified definition of our fairness objectives, parametrized by a single parameter $\alpha$. The parameter $\alpha$ controls how much the objective penalises imbalance: $\alpha = 0$ ignores it entirely, $\alpha = 1$ gives proportional fairness, and $\alpha \to \infty$ maximises only the worst-off allocation. As we will demonstrate, $\alpha = 1$ is often the most appropriate choice under uniform conditions, and increasing $\alpha$ beyond this point can be counterproductive.
 
 \subsection{Solving for fairness using convex optimization}
 
-We have previously used Linear Programming formulations for max-flow and min-cut problems. In those cases, both objectives and constraints are linear. In order to solve nonlinear objectives such as $\log(x)$, we will use the closely related \textbf{convex optimization}. In truth, in our program nothing changes, because the optimizer used was already convex --- all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
+We have previously used Linear Programming formulations for max-flow and min-cut problems. In those cases, both objectives and constraints are linear. In order to solve nonlinear objectives such as $\log(x)$, we will use the closely related \textbf{convex optimization}. In truth, in our program nothing changes, because the optimizer used was already convex - all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
 
 \paragraph{Epidemic scenario interpretation.} We model an epidemic resource distribution network where the source $s$ is a central depot, inner nodes connected to the source are regional warehouses or hubs, and sink nodes $t_1, t_2, \dots, t_m$ are hospitals or medical centers. Each hospital has a demand $D_k$ representing the resources required. Arcs are transportation routes with capacity $c(e)$ equal to the maximum transport volume per unit time.
 
