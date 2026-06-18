@@ -140,6 +140,8 @@ A directed graph representing transport of flow between nodes. This directed gra
 \end{definition}
 
 \begin{definition}[Capacity function]
+    Description
+
     \[
         \forall (u,v) \in E :
         \begin{cases}
@@ -173,6 +175,7 @@ A node with only incoming flow.
 \end{definition}
 
 \begin{definition}[Flow function]
+Description
     \[
 f : E \to \mathbb{R}_{\ge 0}
 \]
@@ -518,8 +521,8 @@ There is an extension of the previous theorem for $p$ constraints that is as fol
 \end{theorem}
 
 \newpage
-\section{Flow networks, Convex optimization, duality, fairness}
-\subsection{NetworkX library and algorithmic approach}
+\section{Flow networks, duality, fairness}
+\subsection{NetworX library and algorithmic approach}
 
 We use the \texttt{import networkx as nx} python library to define flow network graphs in Python. The flow network is built manually as a \texttt{nx.DiGraph} directed graph from an array of tuples.
 
@@ -534,6 +537,8 @@ arcs = [
 
 for u, v, capacity in arcs:
     G.add_edge(u, v, capacity=capacity)
+def hello():
+    print("Hello")
 \end{minted}
 
 Without implementing flow algorithms themselves, we can then use various \texttt{NetworkX} methods to solve the basic problem.
@@ -564,7 +569,7 @@ nx.draw_networkx_edge_labels(...)
 plt.show()
 \end{minted}
 
-This shows that the solution for both \textit{max network flow} and \textit{max-flow min-cut} problems is obtained not only by the same algorithm, but a single algorithm pass provides the solution for both by the way of residual graph. When using algorithmic approach, this graph allows us to obtain graph partitions using BFS search, by defining non-reachable nodes as those with no residual capacity
+The important insight this approach provides is that the solution for both \textit{max network flow} and \textit{max-flow min-cut} problems is obtained not only by the same algorithm, but a single algorithm pass provides the solution for both by the way of residual graph. When using algorithmic approach, this graph allows us to obtain graph partitions using BFS search, by defining non-reachable nodes as those with no residual capacity
 
 \begin{minted}[linenos, bgcolor=bg]{python}
 S = set()
@@ -671,19 +676,15 @@ Finally, we can obtain the array representation of the problem for use in \textt
 
 \begin{minted}[linenos, bgcolor=bg]{python}
 incidence_mx = np.asarray(nx.incidence_matrix(G, oriented=True).todense())
-capacity_vector = np.array([d['capacity'] for (_, _, d) in G.edges(data=True)])
-flow_vector = cvxpy.Variable(len(G.edges()), nonneg=True)
-
 A = incidence_mx[1:-1, :]
-constraints = [
-    flow_vector <= capacity_vector, # Capacity constraints
-    A @ flow_vector == 0,           # Flow conservation constraints
-    ]
-
+c = np.array([d['capacity'] for (_, _, d) in G.edges(data=True)])
+x = cvxpy.Variable(len(G.edges()), nonneg=True)
 q = np.array([1 if u == "s" else -1 if v == "s" else 0 for u, v in G.edges()])
-objective = cvxpy.Maximize(q @ flow_vector)
-problem = cvxpy.Problem(objective, constraints)
-problem.solve(cvxpy.CLARABEL)
+
+# Objective function f = q @ x
+f = cvxpy.Maximize(q @ x)
+problem = cvxpy.Problem(f, c)
+problem.solve()
 \end{minted}
 
 Thus, we have obtained a solution to the max network flow problem. Before showing the results and comparing them to the algorithmic method, let us discuss the other side of this problem - max-flow min-cut. In the previous example, we have obtained a residual graph that contained a solution for both, but because our Linear Programming approach is problem-agnostic: the optimizer does not know that it is solving a graph problem, only that it is finding a vector constrained by a set of equations.
@@ -703,8 +704,8 @@ Therefore, in order to solve the max-flow min-cut problem, we have to define ano
 & d_{st} \ge 1,
     && \forall(s,t)\in E, \\[4pt]
 \text{sign const.} \quad
-& d_{uv} \ge 0 \quad \forall(u,v) \in E\\[4pt]
-& z_u \in \mathbb{R} \quad \forall(u) \in V \setminus \{s, t\}
+& d_{uv} \ge 0 \quad \forall(u,v) \in V\\[4pt]
+& z_u \in \mathbb{R} \quad \forall(u) \in E \setminus \{s, t\}
 \end{aligned}
 \]
 
@@ -732,79 +733,13 @@ Let us compare algorithmic and linear programming methods. In the case of Edmond
 
 The interpretation of min-cut is also more straightforward - the algorithm terminated when there was no augmenting path from source to sink in the residual graph. The cut edges are the saturated edges crossing between two sets, that we found by using a graph searching algorithm that identified unreachable nodes in the residual graph, and thus, constitute a bottleneck limiting further increase of flow.
 
-In contrast, the linear programming formulation describes the problem as general optimization problem with variables, constraints, and an explicit objective function. Linear programs do not exploit the combinatorial structure of the graph. This necessitated defining constraints for both problems separately.
+In contrast, the linear programming formulation describes the problem as general optimization problem with variables, constraints, and an explicit objective function. Linear programs do not exploit the combinatorial structure of the graph. This necessitated defining constraints for both problems separately, but as we will see, the differences don't end there.
 
 The total flow values returned are identical, as both methods return optimal solution, but the edge flows differ. The "cleaner" appearance of the algorithmic approach is a result of the precise arithmetic nature of the combinatorial approach, while the observed values returned by LP originate from its numerical exploration of the real number space constrained by the linear equations, performed using floating point calculations.
 
 The second difference is the necessity of defining constraints which are implicit in the flow algorithms. In the min-cut solution obtained using \texttt{cvxpy}, we can observe that the \(d\) and \(z\) vector variables contain values only in the \(\{0, 1\}\) range, which squares with our interpretation - edge can be either included or not, and the nodes potentials guarantee that edges connecting nodes of different sets are included in the cut. However, if we look at the defined constraints for the min-cut problem, \(z_u \in \mathbb{R}, d_{uv} \in \mathbb{R^+}\), allow them to take many real values outside of this range, and solutions which specify the edge inclusion as \(d_{uv} = 55.291...\) or \(d_{uv} = 0.5\) would be \textit{feasible}, even though conceptually, an edge can't be half-included in a cut. The question is, then, why do optimal solutions push those values towards the limits defined by other constraints.
 
-The residual-graph viewpoint and the convex-optimization viewpoint also provide matching confirmation of optimality. Edmonds-Karp returns a max-flow together with a residual graph from which the min-cut can be read off. In the LP and convex formulations, a single solve returns both a primal flow and dual multipliers. The edges identified as bottlenecks by the residual graph are exactly the ones whose capacity-dual values become positive, while unsaturated edges keep dual values at or near zero. In that sense, dual prices play the same structural role as the residual graph: they identify which constraints are preventing any further improvement.
-
-Tables \ref{tab:maxflow_capacity_duals} and \ref{tab:mincut_duals} represent the dual variable values obtained from convex optimizer. In the primal max-flow solve, only the two saturated bottlenecks \((a,c)\) and \((b,d)\) carry unit capacity prices. In the min-cut dual solve, the first dual vector numerically reconstructs the primal max-flow edge values, while the second tracks the slack of the non-negativity constraints on cut indicators.
-
-\begin{table}[H]
-    \centering
-    \small
-    \begin{tabular}{lc}
-        \hline
-        Edge \(e\) & Capacity-dual price \(\lambda_e\) \\
-        \hline
-        \((s,a)\) & 0.00 \\
-        \((s,b)\) & 0.00 \\
-        \((a,b)\) & 0.00 \\
-        \((a,c)\) & 1.00 \\
-        \((b,d)\) & 1.00 \\
-        \((c,d)\) & 0.00 \\
-        \((c,t)\) & 0.00 \\
-        \((d,t)\) & 0.00 \\
-        \hline
-    \end{tabular}
-    \caption{\textbf{Capacity dual prices from the primal max-flow LP.} These are the dual values of the constraints \(f_e \le c_e\).}
-    \label{tab:maxflow_capacity_duals}
-\end{table}
-
-\begin{table}[H]
-    \centering
-    \small
-    \begin{tabular}{lc}
-        \hline
-        Internal node \(v\) & Conservation dual \(\mu_v\) \\
-        \hline
-        \(a\) & 1.00 \\
-        \(c\) & 1.00 \\
-        \(d\) & -0.00 \\
-        \(b\) & 0.00 \\
-        \hline
-    \end{tabular}
-    \caption{\textbf{Node-potential duals from the primal max-flow LP.} One multiplier corresponds to each constraint in \(Af=0\).}
-    \label{tab:maxflow_node_duals}
-\end{table}
-
-\begin{table}[H]
-    \centering
-    \small
-    \begin{tabular}{lcc}
-        \hline
-        Edge \(e\) & Dual of \(d - zA \ge q\) & Dual of \(d \ge 0\) \\
-        \hline
-        \((s,a)\) & 7.00 & 1.00 \\
-        \((s,b)\) & 3.00 & 1.00 \\
-        \((a,b)\) & 3.00 & 3.00 \\
-        \((a,c)\) & 4.00 & 0.00 \\
-        \((b,d)\) & 6.00 & 0.00 \\
-        \((c,d)\) & 0.99 & 1.01 \\
-        \((c,t)\) & 3.01 & 0.99 \\
-        \((d,t)\) & 6.99 & 1.01 \\
-        \hline
-    \end{tabular}
-    \caption{\textbf{Dual values from the CVXPY min-cut solve.} Obtained after solving the min-cut formulation with SCS. Small deviations from exact integers, such as \(0.99\) and \(1.01\), come from numerical optimization tolerance.}
-    \label{tab:mincut_duals}
-\end{table}
-
-Different optimizers can still return slightly different flows while agreeing on the same optimal value. Edmonds-Karp selects one integral decomposition, whereas CLARABEL or SCS may land on another point of the same optimal face. This agrees with the later Lagrangian example on \figref{lagrangian}: a saddle set may be flat along directions that do not change the objective or the active constraints. Flows on unsaturated edges can slide along that flat direction without changing optimality, whereas saturated edges are pinned by the capacity constraint and complementary slackness.
-
-Despite the max-flow and min-cut optimization problems defining objective functions and many constraints separately, the resulting value is the same. This happens even though one is a maximization and the other a minimization problem. As we will demonstrate, this is a special example of strong duality - a pair of optimization problems, of which the value of optimal solution to one problem is equal to the other.
-
+Finally, we can see that despite the max-flow and min-cut optimization problems defining objective functions and many constraints separately, the resulting value is the same. This happens even though one is a maximization and the other a minimization problem. As we will demonstrate, this is a special example of strong duality - a pair of optimization problems, of which the value of optimal solution to one problem is equal to the other.
 
 \subsection{Dual optimization and problem transformation}
 
@@ -900,7 +835,7 @@ Because \(q\) already distinguishes edges leaving the source from all other edge
 
 \subsection{Lagrangian and Karush–Kuhn–Tucker conditions}\label{sec:lagrangian_kkt}
 
-To explain how the primal and dual problems are connected, let us use the Lagrangian, extended to include inequality constraints.
+To explain how the primal and dual problems are connected, let us introduce the Lagrangian. The method of Lagrangian multipliers is a way of finding local maxima and minima of a function constrained by a set of equations.
 
 For a standard problem
 
@@ -936,9 +871,9 @@ In alternative form
 \] 
 such that \( (x^\ast,\alpha^\ast) \) is a saddle point of \( L(x,\alpha). \)
 
-Sufficiency states that if a solution to a convex optimization problem, together with a set of multipliers, forms a saddle point of the Lagrangian, then the solution is optimal. In other words, the existence of a saddle point certifies optimality.
+In plain language, sufficiency states that if a solution to a convex optimization problem, together with a set of multipliers, forms a saddle point of the Lagrangian, then the solution is optimal. In other words, the existence of a saddle point certifies optimality.
 
-Nnecessity states that if a solution is optimal, then there exist multipliers such that the corresponding primal-dual pair forms a saddle point of the Lagrangian. Under appropriate regularity conditions, every optimal primal solution has an associated dual solution that certifies its optimality.
+Conversely, necessity states that if a solution is optimal, then there exist multipliers such that the corresponding primal-dual pair forms a saddle point of the Lagrangian. Thus, under appropriate regularity conditions, every optimal primal solution has an associated dual solution that certifies its optimality.
 
 \paragraph{Necessary conditions are:}
 \begin{itemize}
@@ -981,7 +916,7 @@ h_j(x^*)=0,\qquad \forall j
 \]
 \end{itemize}
 
-Now let us apply the conditions to maximum flow network problem. We have satisfied the \textit{Slater's regularity condition} by the way of \(x <  c\), that is, there exists a solution strictly satisfying all inequality conditions. Both objective function and the linear inequalities are convex.
+Now let us apply the conditions to maximum flow network problem. We have satisfied the \textit{Slater's regulary condition} by the way of \(x <  c\), that is, there exists a solution strictly satisfying all inequality conditions. Both objective function and the linear inequalities are convex.
 
 We will represent the KKT conditions in matrix form.
 
@@ -1044,24 +979,6 @@ A final observation is that the vector \(q\) introduces a unit source-sink forci
 
 Combined with complementary slackness, the integral, unimodular structure of \(q\) and \(A\), this drives the optimal values of \(d_i\) toward either \(0\) or \(1\). Consequently, an edge either participates in separating the source from the sink, or it does not.
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}{.49\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{Project/img/lagrangian_saddle_point.png}
-        \caption{}
-        \label{fig:lagrangian_a_c}
-    \end{subfigure}
-    \begin{subfigure}{.49\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{Project/img/lagrangian_a_b.png}
-        \caption{}
-        \label{fig:lagrangian_a_b}
-    \end{subfigure}
-    \caption{\textbf{Lagrangian cut on different edges.} Although not every part of how the solution looks like can be shown on a Lagrangian section, we can observe that there is a point where solutions meet, that the shape differs for saturated and unsaturated edges in our example network. We can observe ridges of the Lagrangian on which the optima lie.}
-    \label{fig:lagrangian}
-\end{figure}
-
 
 \subsection{Introducing fairness}
 
@@ -1098,14 +1015,14 @@ As we have seen, LP solutions and Edmonds-Karp solutions to maximum flow problem
 
 The trade-offs between solution could have many definitions, like the flows on $e_i$ vs $e_j$, or trade-offs between optimization objectives, like total flow versus \textit{fairness}, however we define it, in our case.
 
-The simple fact that a solution lies on a Pareto frontier does \textbf{not} make it fair. By defining an objective function, like the total flow \( \max f = \sum_{v \in V} f(s,v) \), we select the trade-off, and that can be interpreted as selecting a single point on a Pareto frontier. Later, we will define other objective functions to obtain different trade-offs.
+The simple fact that a solution lies on a Pareto frontier does \textbf{not} make it fair. By defining an objective function, like the total flow \( \max f = \sum_{v \in V} f(s,v) \), we select the trade-off, and that can be interpreted as selecting a single point on a Pareto frontier. As we will see, we can define other objective functions to define different trade-offs.
 
 \subsection{Types of fairness}
-There are multitude of fairness objective definitions, but we will define two useful to us, and then generalize and approximate them in one, single parameter definition.\cite{paschos_allocation_fairness}
+There are multitude of fairness objective definitions, but we will define two useful to us, and then generalize and approximate them in one, single parameter definition.
 
 \paragraph{\textbf{Min-Max Fairness}} prioritizes the \textit{worst-off} edges. The goal is simple - improve the smallest allocations until no improvement can be made without decreasing flow of an edge with an equal or smaller allocation.
 
-The standard way of computing min-max fairness is through \textit{progressive filling}. It iteratively increases utility like \(flow / capacity\) on edges until they reach they maximum allowable allocation. As it focuses on the worst-off allocations first, and makes it a basis for the second worst and so on, it can be viewed as a \textit{lexicographic} maximization method. We will not implement this algorithm, but we can approximate it.
+The standard way of computing min-max fairness is through \textit{progressive filling}. It progressively, iteratively increases utility like \(flow / capacity\) on edges until they reach they maximum allowable allocation. As it focuses on the worst-off allocations first, and makes it a basis for the second worst and so on, it can be viewed as a \textit{lexicographic} maximization method. We will not be implementing this algorithm, but we can approximate it.
 
 \paragraph{Proportional Fairness}
 
@@ -1149,7 +1066,7 @@ This translates to the optimizer maximizing geometric mean instead of arithmetic
 \subsubsection{Alpha Fairness}
 Alpha fairness is a family of fairness objectives that should unify our definitions:
 \[
-U_\alpha(x)=
+U(x)=
 \begin{cases}
 \displaystyle \sum_i \frac{x_i^{1-\alpha}}{1-\alpha},
 & \alpha \in [0,1)\cup(1,\infty] \\[1 em]
@@ -1174,144 +1091,40 @@ This creates an unified definition of our fairness objectives, parametrized by a
 
 We have previously used Linear Programming formulations for max-flow and min-cut problems. In those cases, both objectives and constraints are linear. In order to solve nonlinear objectives such as $\log(x)$, we will have to use the closely related \textbf{convex optimization}.
 
-In our program nothing changes because the optimizer used was already convex - all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
-
+In truth, in our program nothing changes, because the optimizer used was already convex - all linear problems are also convex. This is a generalization of that idea which allows us to define more varied objectives.
  
-\paragraph{Epidemic scenario interpretation.} We model an epidemic resource distribution network where the source $s$ is a central depot, inner nodes connected to the source are regional warehouses or hubs, and sink nodes $t_1, t_2, \dots, t_m$ are hospitals or medical centers. Each hospital has a demand $D_k$ representing the resources required. Arcs are transportation routes with capacity $c(e)$ equal to the maximum transport volume.
-
-We define utility as a \textit{fraction of demand fulfilled} for each sink.
-\[
-U_k = \frac{S_k}{D_k}, \qquad
-S_k = \sum_{(u,\, t_k) \in E} f(u,\, t_k),
-\]
-where $S_k$ is the total flow arriving at sink $k$, which is in contrast to the previous total flow definitions which only added up arc flows into a single sink.
-
-The implemented objective is applied directly to the sink-inflow vector $S$:
-\[
-\begin{aligned}
-\text{maximize} \quad & U_\alpha(S)=\sum_{k=1}^{m} D_k \, u_\alpha(S_k) \\[4pt]
-\text{subject to} \quad
-& 0 \le f(e) \le c(e) \quad \forall e \in E, \\
-& \sum_{(u,v)\in E} f(u,v) = \sum_{(v,w)\in E} f(v,w)
-\quad \forall v \in V \setminus \{s, t_1, \dots, t_m\}.
-\end{aligned}
-\]
-with
-\[
-u_\alpha(s)=
-\begin{cases}
-s, & \alpha = 0,\\
-\log(s+\varepsilon), & \alpha = 1,\\
-\dfrac{(s+\varepsilon)^{1-\alpha}}{1-\alpha}, & \alpha \ne 1.
-\end{cases}
-\]
-
-Here the coefficients $D_k$ come from the sink demands in the network. They are \textbf{not} transport costs, which appear as edge costs $w_e$.
-
-\paragraph{Code implementation.} We use the \texttt{cvxpy} library with the \texttt{nx.incidence\_matrix} approach introduced earlier. The sink-inflow matrix $B$ maps edge flows to per-sink totals:
-\begin{minted}[linenos, bgcolor=bg]{python}
-incidence_mx = np.asarray(nx.incidence_matrix(G, oriented=True).todense())
-B = incidence_mx[np.isin(nodes, sinks)]
-S = B @ flow_vector          # per-sink inflow
-D = B @ capacity_vector      # per-sink demand
-U = S / D                    # demand-normalised utility
-objective = cvxpy.Maximize(cvxpy.sum(D @ cvxpy.log(S + 1e-9)))
-\end{minted}
-
-We sweep $\alpha$ and record per-sink utilisation $S_k/D_k$ and total throughput. This experiment changes only the fairness objective and keeps transport costs and hard-budget pressure out of the model.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{Project/img/alpha_sweep_sequence_grid.png}
-    \caption{\textbf{Sequence grid of subsequent frames from the  $\alpha$-sweep.} The grid reproduces six consecutive frames at values \(\alpha=0,0.5,1,2,3,5\). Each frame pairs the edge-saturation view of the network with the sink-flow and utilization bars, making the redistribution path visible as fairness pressure increases while total throughput stays fixed at \(21\).}
-    \label{fig:alpha_sweep_sequence_grid}
-\end{figure}
-
-In the example network, the hospital demands are $D = (12, 8, 5)$. The unconstrained maximum-flow baseline serves $21$ units in total, with sink inflows $(10.396, 6.699, 3.905)$, that is, utilisation levels $(0.866, 0.837, 0.781)$. In the $\alpha$-sweep used to plot \figref{alpha_sweep_sequence_grid}, the utilitarian point $\alpha = 0$ sends $(12, 8, 1)$ and strongly favours the two largest-demand hospitals, whereas $\alpha = 1$ produces $(10.080, 6.720, 4.200)$, corresponding to perfectly equal utilisation $(0.840, 0.840, 0.840)$. For larger $\alpha$, the smallest hospital is prioritised: at $\alpha = 5$ the utilisation vector becomes approximately $(0.694, 0.959, 1.000)$. Thus, in this experiment, the main effect of $\alpha$ is redistribution without any loss of throughput - the fairness is free.
-
-\paragraph{Budget and edge costs.} We introduce transport costs through \textit{edge costs} $w_e$. The alternative could be per-sink fairness weights, which would correspond to hospital priority - for example, some may house more vulnerable patients. Here, we use the transport costs to minimize or constrain delivery costs.
-
-The budgeted fairness problem is
-\[
-\max_f U_\alpha(Bf)
-\quad \text{s.t.} \quad
-Af = 0,\; 0 \leq f \leq c,\; Bf \leq D,\; w^\top f \leq B_{\max}.
-\]
-Fairness is still applied to the sink-inflow vector $S=Bf$, but now expensive routes compete for a common transport budget. Adding this constraint is the point in which the tradeoffs between utility and throughput become visible.
+Let us precisely define the problems precisely
 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{Project/img/budget_fairness_sequence_grid.png}
-    \caption{\textbf{Sequence grid of subsequent frames from the Section 2.3 budgeted fairness sweep.} The grid reproduces six consecutive representative notebook frames at values \(\alpha=0,0.5,1,2,3,5\) for the hard-budget model with \(B_{\max}=40\). Each frame shows the network allocation together with sink-flow and utilisation bars.}
-    \label{fig:budget_fairness_sequence_grid}
-\end{figure}
-\subsection{Cost of fairness - Pareto frontier and dual interpretation}
 
-The \textit{Price of Fairness} (PoF) quantifies the throughput sacrificed in pursuit of fairness:
-\[
-\text{PoF} = \frac{f_{\max} - f_{\text{fair}}}{f_{\max}},
-\]
-where $f_{\max}$ is the maximum total flow (utilitarian, $\alpha = 0$) and $f_{\text{fair}}$ is the throughput under a fairness objective.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.65\linewidth]{Project/img/pareto_frontier.png}
-    \caption{\textbf{Pareto frontier from the budgeted $\alpha$-sweep.} Corresponds to a budget $B=40$and plots throughput against Jain's fairness index on utilisation, as well as other metrics. Contrary to expectation, the Price of Fairness is worse the more utilitarian we get - this is a result of incorrectly defined optimization objective. The increase in fairness almost accidentaly improves the solution.}
-    \label{fig:pareto_frontier}
-\end{figure}
-
-\paragraph{Lagrangian dual and shadow prices.} For the log-utility case ($\alpha = 1$), the Lagrangian of the fairness problem is
-\[
-\mathcal{L}(f, \lambda, \mu) = \sum_k D_k \log\!\left(\frac{S_k}{D_k}\right)
-+ \mu^\top A f
-+ \lambda^\top (c - f),
-\]
-where $\lambda_e \ge 0$ are the dual variables for the capacity constraints and $\mu_u$ are the node potentials from flow conservation (similar to $z$ known from the min-cut problem). The stationarity condition gives:
-\[
-\frac{\partial \mathcal{L}}{\partial f_e} = 0
-\quad\Longrightarrow\quad
-\sum_{k:\, e \text{ reaches } t_k} \frac{D_k}{S_k} + (A^\top \mu)_e - \lambda_e = 0.
-\]
-
-This reveals the economic interpretation:
-\begin{itemize}
-    \item $\lambda_e$ acts as a \textit{congestion toll} on edge $e$. By complementary slackness, $\lambda_e > 0$ only when the edge is saturated ($f_e = c_e$).
-    \item $\mu_u$ acts as a \textit{node potential} measuring the marginal value of one additional unit of flow at node $u$.
-    \item The term $D_k / S_k$ is the marginal utility of flow to hospital $k$ --- it is high when the hospital is underserved (low $S_k$ relative to $D_k$) and low when well-served.
-\end{itemize}
-
-Complementary slackness $\lambda_e (c_e - f_e) = 0$ guarantees that only fully saturated edges carry a positive congestion toll. This connects the fairness dual to the max-flow dual discussed earlier: while the max-flow dual has integral $\{0,1\}$ solutions, the fairness dual produces continuous shadow prices that reflect the \textit{marginal value of capacity} in terms of utility rather than pure flow.
-
-\paragraph{Transport-cost shadow prices.}
-We trace the \textbf{Pareto frontier} between throughput and Jain's fairness index
-\[
-J = \frac{\left(\sum_k U_k\right)^2}{m \sum_k U_k^2}
-\]
-alongside the hard-budget constraint \(w^\top f \le B_{\max}\). The same budget constraint appears in two complementary forms: a hard cap in the constrained problem and a soft penalty in the optimization objective 
-\[
-\max_f U_\alpha(Bf) - \gamma w^\top f
-\]
-A sweep over \(\gamma\) lets us choose the soft-penalty value whose transport cost is closest to the target budget, while the hard-budget dual variable reads off the local slope of the constrained value function.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\linewidth]{Project/img/soft_cost_gamma_sweep.png}
-    \caption{\textbf{Soft-cost sensitivity to \(\gamma\) at fixed \(\alpha = 2\).} The grid plot shows total throughput, transport cost, Jain's index, and per-sink utilization as functions of the penalty parameter \(\gamma\). The dashed line in the transport-cost panel marks the target hard budget \(B_{\max}=40\).}
-    \label{fig:soft_cost_gamma_sweep}
-\end{figure}
-
-For \(B_{\max} = 40\) and \(\alpha = 2\), a \(\gamma\)-sweep followed by bisection yields \(\gamma \approx 0.171670\), while solving the hard-budget model gives the dual value \(\gamma^\ast \approx 0.171665\). The near equality shows that the experimentally chosen penalty is strongly correlated with the shadow price of the earlier budget constraint rather than being an unrelated tuning knob. At this point, the network delivers about \(10.801\) total units, with sink inflows \((3.739, 3.649, 3.413)\), utilisations \((0.312, 0.456, 0.683)\), and Jain index \(0.909\).
+\subsection{Cost of fairness - dual problem and shadow prices}
 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\linewidth]{Project/img/shadow_prices_heatmap.png}
-    \caption{\textbf{Capacity shadow prices under joint fairness and transport-cost control.} The left panel shows the aggregate pressure \(\sum_e \lambda_e\), while the right panel shows the strongest single-edge multiplier \(\max_e \lambda_e\), as functions of the fairness parameter \(\alpha\) and the transport penalty \(\gamma\).}
-    \label{fig:shadow_prices_heatmap}
-\end{figure}
+\subsection{Mathematical Framing and Theoretical Background}
 
-The heatmaps show that the strongest capacity pressure appears at \((\gamma, \alpha) = (0, 0)\), where \(\sum_e \lambda_e \approx 25.64\) and \(\max_e \lambda_e \approx 8.48\). As \(\gamma\) increases, extra flow becomes less valuable relative to transport cost, and the capacity shadow prices rapidly collapse toward zero.
+We will use graph theory and the \textit{Max-Flow} problem to model our situation.
+
+We will set an oriented graph $G=(V,E)$ where $V$ represents all the infrastructures (nodes) and $E$ the roads (edges). Each edge $(u,v)$ has a maximal capacity $c(u,v)$.
+
+Our decision variable is $f(u,v)$, which represents the resources quantity on the edge $(u,v)$.
+
+We will have three constraints \emph{Capacity constraint}, \emph{Flow conservation (Kirchhoff law)} and the flow value sign constraint
+    \[
+        f(u, v) \geq 0
+    \]
+
+Our objective function is therefore to maximize the total flow leaving the source $s$:
+
+\begin{equation}
+    \max f = \sum_{v \in V} f(s,v)
+\end{equation}
+
+
+The main theorem that we will use is the Max-Flow theorem (see \cite{dantzig1964maxflow} and \cite{wiki_maxflow_mincut}) in order to analyze the vulnerability of the network.
+
+We will extend this model by using a "super-source" (connected to all usines) and a "super-well" (connected to all infected zone) in order to model a multi-cluster outbreak.
+
+We will also define and use the sensibility of an edge $c$, which is the quantity $\frac{\Delta \abs{f}}{\Delta c_c}$ and we will try to find the most vital edge.
 
 
 \section{Study of sensitivity}
@@ -1373,7 +1186,7 @@ On the one hand, if the shadow price is strictly positive, the edge is a bottlen
 
 First, the naive method can be considered: given a change $\delta$ on the edges capacity, we can for instance compute the total flow for every single edge of the graph and see if it improves the maximum flow.
 
-\begin{python}[caption={Python code for the optimized approach},  label={lst:1_naive_method_lst}]
+\begin{python}[caption={Python code for the naive approach},  label={lst:1_naive_method_lst}]
 def naive_sensitivity(G, s, t, delta=1):
     """
     Naive approach: Test every single edge to see if increasing its capacity improves the maximum flow.
@@ -1519,7 +1332,7 @@ First, as the the flow loss cannot exceed the capacity of the removed edge, nor 
 
 Then, we can discuss the connection of the vitality with the minimum cut. An edge $e$ has a vitality $\Delta v(e) > 0$ \textit{if and only if} it belongs to all possible minimum cuts of the graph. If it only belongs to some minimum cuts, the flow can find another path that will saturate an alternative cut, and the loss will be strictly less than $c(e)$.
 
-The comparison is indeed why the identification of the minimum cut edges is an excellent pre-selection heuristic to significantly reduce computational time (TO DEVELOP).
+The comparison is indeed why the identification of the minimum cut edges is an excellent pre-selection heuristic to significantly reduce computational time (TO DEVELOPP).
 
 \subsubsection{Naive method}\label{sec:2_naive_method}
 
@@ -1561,7 +1374,7 @@ def find_most_vital_edge_naive(G, s, t):
 
 In fact, if the edge has no flow, his loss will be $0$. We can therefore save all these edges and avoid useless computation.
 
-\begin{python}[caption={Python code for the optimized approach in order to identify the most vital edge},  label={lst:2_optimized_method_lst}]
+\begin{python}[caption={Python code for the naive approach in order to identify the most vital edge},  label={lst:2_naive_method_lst}]
 def find_most_vital_edge_optimized(G, s, t):
     # compute the flow and recuperation of the flow distribution
     base_flow_value, flow_dict = nx.maximum_flow(G, s, t)
@@ -1632,20 +1445,17 @@ In section \ref{sec:partI}, we established that a greedy edge-by-edge upgrade st
 
 \subsubsection{Theoretical review}
 
-We transition from a simple analysis problem to a Network Design Problem. We are given a budget $B$, and upgrading edge $(i,j)$ -- i.e. adding a fixed capacity $\delta$ to it -- costs $w_{ij}$. We introduce a \emph{binary} decision variable $y_{ij} \in \{0,1\}$ equal to $1$ if edge $(i,j)$ is upgraded and $0$ otherwise.
+We transition from a simple analysis problem to a Network Design Problem, where we have a certain budget $B$. Increasing the capacity of an edge $(i,j)$ by one unit costs $w_{ij}$. We introduce a new decision variable $y_{ij} \geq 0$ representing the added capacity.
 
-The presence of these integer variables, alongside the continuous flow variables $f_{ij}$, is exactly what makes the model a \emph{Mixed-Integer Linear Program} (MILP) -- and what makes it NP-hard, consistent with the combinatorial nature established in Section~\ref{sec:partI}. We therefore maximize $v$ under the following constraints:
+The new linear program becomes therefore to maximize $v$ under the following constraints:
 
 \begin{equation}
     \begin{cases}
-        \forall k \in V \backslash \{s,t\}, \quad \sum_i f_{ik} - \sum_j f_{kj} = 0 \qquad &\text{(Kirchhoff's law)} \\
-        \forall (i,j) \in E, \quad 0 \leq f_{ij} \leq c_{ij} + \delta\, y_{ij} \qquad &\text{(Capacity constraint)} \\
-        \sum_{(i,j) \in E} w_{ij}\, y_{ij} \leq B \qquad &\text{(Budget constraint)} \\
-        \forall (i,j) \in E, \quad y_{ij} \in \{0,1\} \qquad &\text{(Integrality)} \\
+        \forall k \in V \backslash \{s,t\}, \quad \sum_i f_{ik} - \sum_j f_{kj} = 0 \qquad &\text{(Kirchoff's law)} \\
+        \forall (i,j) \in E, \quad 0 \leq f_{ij} \leq c_{ij} + y_{ij} \qquad &\text{(Capacity's constraint)} \\
+        \sum_{(i,j) \in E} w_{ij} y_{ij} \leq B \qquad &\text{(Budget's constraint)} \\
     \end{cases}
 \end{equation}
-
-The implementation below corresponds to the unit-cost special case $w_{ij} = 1$ and $B = k$, for which the budget constraint reduces to the cardinality constraint $\sum_{(i,j) \in E} y_{ij} \leq k$, capping the number of upgraded edges at $k$.
 
 \subsubsection{Greedy algorithm}
 
@@ -1686,10 +1496,9 @@ However, the greedy algorithm is not always optimal because the maximum flow fun
 
 In discrete mathematics, a greedy algorithm offers strong approximation guarantees if the objective function exhibits diminishing marginal returns (submodularity). However, in a network, increasing the capacity of route A might yield zero gain until you also increase the capacity of the subsequent route $B$ (synergy effect). The greedy approach will ignore $A$ and B because their immediate individual gain is $0$, whereas the joint investment in $(A + B)$ would have been the global optimum.
 
-\subsubsection{Mixed-Integer Linear Programming}
+\subsubsection{Linear Programming}
 
-The MILP solver (here CBC, called through the \texttt{pulp} module), by exploring the solution space globally via branch-and-bound (it solves an LP relaxation at each node), captures the synergy that the greedy algorithm misses (\mylistref{3_ilp_method_lst}).
-
+The LP Solver (implemented in pulp module), by evaluating the solution space holistically (using the simplex algorithm or interior point methods), will capture this synergy that the greedy algorithm misses (\mylistref{3_ilp_method_lst}).
 
 \begin{python}[caption={Python code for the greedy approach in order to identify the sequence of $k$ edges under budget constraint},  label={lst:3_ilp_method_lst}]
 def exact_k_edges_ilp(G, s, t, k, delta=1.0):
@@ -1737,25 +1546,14 @@ Finally, we will continue to use generated random graph to compare both methods.
         \caption{}
         \label{fig:benchmark_3b}
     \end{subfigure}
-    \caption{\textbf{Comparison between the greedy and the MILP approach.} \figref{benchmark_3a} presents the execution time with the number of nodes in the graph and \figref{benchmark_3b} presents efficiency of the greedy algorithm comparing with the real optimal solution.}
+    \caption{\textbf{Comparison between the greedy and the linear programming.} \figref{benchmark_3a} presents the execution time with the number of nodes in the graph and \figref{benchmark_3b} presents efficiency of the greedy algorithm comparing with the real optimal solution.}
     \label{fig:benchmark_3}
 \end{figure}
 
-\newpage
+\section{Further development (as homework ?)}
+
 \addcontentsline{toc}{section}{Conclusion}
 \section*{Conclusion}
-
-In our project, we proposed a model and a way to handle the logistical challenge of distributing critical resources during a health crisis. Starting from the foundations of flow network theory, our study quickly moved beyond simple theoretical maximization to build advanced optimization models capable of meeting complex real-world requirements. Our three main conclusions are as follows:
-
-\begin{itemize}
-    \item While classical combinatorial algorithms (such as Edmonds-Karp) offer an efficient resolution of the Max-Flow Min-Cut theorem, the linear and convex programming approach proved to be much more flexible. Using the Lagrangian and the Karush-Kuhn-Tucker (KKT) conditions allowed us to extract dual variables (shadow prices), revealing the economic and structural value of our network's capacity bottlenecks.
-
-    \item In an epidemiological context, simply maximizing the total throughput (utilitarianism) is insufficient. By introducing optimization parameterized by alpha-fairness, we were able to mathematically formalize and quantify the trade-off between network efficiency and distribution fairness. This approach makes it possible to consciously navigate the Pareto frontier according to established public health priorities.
-
-    \item The sensitivity analysis, applied to the urban network of Wrocław, highlighted the limitations of local heuristics. We formally demonstrated that greedy algorithms fail to capture synergy effects when upgrading multiple edges simultaneously. To design a robust network and allocate an investment budget in a global and truly optimal manner, the use of Mixed-Integer Linear Programming (MILP) is essential.
-\end{itemize}
-
-To conclude, this report provides a comprehensive mathematical and algorithmic framework. It delivers robust decision-making tools to anticipate the vulnerabilities of a logistics infrastructure, target critical investments, and ensure the delivery of vital resources in a way that is highly efficient, resilient, and fair.
 
 \addcontentsline{toc}{section}{References}
 \section*{References}

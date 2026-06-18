@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+.vs/
+*.zip
+
+Reports
+Reports/Project/AgreementOfScope.tex
+Reports/Project/NOTEAgreementOfScope.tex
+uv.lock
+.gitattributes
+*.synctex.gz
+.vscode
